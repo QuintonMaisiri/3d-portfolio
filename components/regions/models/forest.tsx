@@ -1,0 +1,173 @@
+"use client";
+
+/**
+ * The Enchanted Forest with real models (Quaternius Stylized Nature MegaKit,
+ * CC0), built by `npm run models`. Same exports as ../placeholders/forest, so
+ * Forest.tsx swaps between them by changing one import. While models load,
+ * the placeholders stand in.
+ */
+import { forwardRef, Suspense, useImperativeHandle, useRef } from "react";
+import {
+  AdditiveBlending,
+  BufferAttribute,
+  BufferGeometry,
+  Color,
+  type Mesh,
+  type MeshBasicMaterial as BasicMaterial,
+  type PointsMaterial,
+} from "three";
+import { type Placement } from "@/components/world/Scatter";
+import { ModelScatter, useModelParts, type ModelLook } from "@/components/world/ModelScatter";
+import { regionById } from "@/lib/regions";
+import { windSway } from "@/lib/wind";
+import { PROJECT_TREE_HEIGHT, type ProjectTreeHandle } from "../placeholders/forest";
+import { useGeometry, useSoftDot, type GroupProps } from "../placeholders/common";
+import { ModelWoodland } from "./woodland";
+
+export { Fireflies, LightShaft, PROJECT_TREE_HEIGHT, type ProjectTreeHandle } from "../placeholders/forest";
+
+const MODELS = "/models/forest";
+const TWISTED = [1, 2, 3, 4, 5].map((n) => `${MODELS}/twisted-tree-${n}.glb`);
+const UNDERGROWTH = {
+  bush: `${MODELS}/bush.glb`,
+  bushFlowers: `${MODELS}/bush-flowers.glb`,
+  fern: `${MODELS}/fern.glb`,
+  plant: `${MODELS}/plant.glb`,
+  grass: `${MODELS}/grass.glb`,
+  rocks: [1, 2, 3].map((n) => `${MODELS}/rock-${n}.glb`),
+};
+
+/** The forest's palette pull: slightly cool leaves, warm bark. Light enough to keep the pack's own greens. */
+const WOODLAND_LOOK: ModelLook = { foliage: "#e2f2e8", other: "#e6dccf", wind: windSway(2, 0.03) };
+const UNDERGROWTH_LOOK: ModelLook = { foliage: "#e6f4ea", other: "#ddd3c8", wind: windSway(0.2, 0.12) };
+const ROCK_LOOK: ModelLook = { other: "#c4ccc6" };
+
+/** Woodland: every tree a real model (none too close to the camera's route). */
+export function ForestTrees({ items }: { items: readonly Placement[] }) {
+  return <ModelWoodland region={regionById.forest} items={items} look={WOODLAND_LOOK} />;
+}
+
+/** Ferns, bushes, plants, grass and rocks on the forest floor. */
+export function Undergrowth({ items }: { items: readonly Placement[] }) {
+  const kinds = [UNDERGROWTH.bush, UNDERGROWTH.bushFlowers, UNDERGROWTH.fern, UNDERGROWTH.plant, UNDERGROWTH.grass, UNDERGROWTH.grass, ...UNDERGROWTH.rocks];
+  return (
+    <Suspense fallback={null}>
+      {kinds.map((url, m) => (
+        <ModelScatter
+          key={`${url}-${m}`}
+          url={url}
+          items={items.filter((_, k) => k % kinds.length === m)}
+          look={UNDERGROWTH.rocks.includes(url) ? ROCK_LOOK : UNDERGROWTH_LOOK}
+        />
+      ))}
+    </Suspense>
+  );
+}
+
+const MUSHROOM_LOOK: ModelLook = { other: "#e8e2da" };
+
+/** Mushroom clusters on the forest floor, in the pack's own colours so they sit with the trees. */
+export function Mushrooms({ items }: { items: readonly Placement[]; color?: string }) {
+  // Shelf fungus is ~1.4 across at scale 1: kept smaller than the caps beside it.
+  const shelves = items.filter((_, k) => k % 3 === 2).map((it) => ({ ...it, scale: (typeof it.scale === "number" ? it.scale : 1) * 0.5 }));
+  return (
+    <Suspense fallback={null}>
+      <ModelScatter url={`${MODELS}/mushroom.glb`} items={items.filter((_, k) => k % 3 !== 2)} look={MUSHROOM_LOOK} castShadow={false} />
+      <ModelScatter url={`${MODELS}/mushroom-shelf.glb`} items={shelves} look={MUSHROOM_LOOK} castShadow={false} />
+    </Suspense>
+  );
+}
+
+const PROJECT_TREE_SCALE = 0.34;
+
+const LANTERNS = [
+  [1.25, 3.3, 0.4],
+  [-1.1, 3.5, -0.5],
+  [0.3, 4.7, 1.0],
+  [-0.7, 4.9, 0.6],
+  [0.8, 6.0, -0.4],
+] as const;
+const LANTERN_SIZE = 0.9;
+
+/** A twisted tree from the pack, wearing the project tree's lanterns and root ring. */
+const ModelProjectTree = forwardRef<ProjectTreeHandle, GroupProps & { accent: string; variant: number }>(
+  function ModelProjectTree({ accent, variant, ...props }, ref) {
+    // The twisted trees' own autumn reds set the project trees apart from the green woodland; no tint.
+    const parts = useModelParts(TWISTED[variant % TWISTED.length]!, { wind: windSway(6, 0.012) });
+    const ring = useRef<Mesh>(null);
+    const ringMaterial = useRef<BasicMaterial>(null);
+    const lanternMaterial = useRef<PointsMaterial>(null);
+    const dot = useSoftDot();
+    const lanternGeometry = useGeometry(() =>
+      new BufferGeometry().setAttribute("position", new BufferAttribute(new Float32Array(LANTERNS.flat()), 3)),
+    );
+    const colors = useRef({
+      dormant: new Color("#000000"),
+      // A faint warm glow, not a wash: the lanterns and root ring carry the "project" signal.
+      lit: new Color("#ffb070").multiplyScalar(0.06),
+      hover: new Color("#ffb070").multiplyScalar(0.16),
+      lanternOff: new Color("#1a2622"),
+      lanternOn: new Color(accent),
+      lanternHot: new Color("#ffffff"),
+      scratch: new Color(),
+    });
+
+    useImperativeHandle(ref, () => ({
+      setGlow(lit, hover) {
+        const c = colors.current;
+        if (ringMaterial.current) ringMaterial.current.opacity = 0.12 + 0.68 * lit + 0.2 * hover;
+        ring.current?.scale.setScalar(0.75 + 0.25 * lit + 0.15 * hover);
+        c.scratch.lerpColors(c.dormant, c.lit, lit).lerp(c.hover, hover);
+        parts.forEach((p) => p.foliage && p.material.emissive.copy(c.scratch));
+        const lantern = lanternMaterial.current;
+        if (lantern) {
+          lantern.color.lerpColors(c.lanternOff, c.lanternOn, lit).lerp(c.lanternHot, hover * 0.35);
+          lantern.size = LANTERN_SIZE * (0.8 + 0.2 * lit + 0.3 * hover);
+        }
+      },
+    }));
+
+    return (
+      <group {...props}>
+        <group scale={PROJECT_TREE_SCALE}>
+          {parts.map((p, i) => (
+            <mesh key={i} geometry={p.geometry} material={p.material} castShadow receiveShadow />
+          ))}
+        </group>
+        {/* Lanterns: soft additive glows hanging in the branches. */}
+        <points geometry={lanternGeometry}>
+          <pointsMaterial
+            ref={lanternMaterial}
+            map={dot}
+            color="#1a2622"
+            size={LANTERN_SIZE * 0.8}
+            sizeAttenuation
+            transparent
+            depthWrite={false}
+            blending={AdditiveBlending}
+          />
+        </points>
+        <mesh ref={ring} position={[0, 0.08, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[1.1, 1.35, 20]} />
+          <meshBasicMaterial ref={ringMaterial} color={accent} transparent opacity={0.12} />
+        </mesh>
+        {/* Hit area: invisible (no colour or depth writes) but raycastable. */}
+        <mesh position={[0, PROJECT_TREE_HEIGHT / 2, 0]}>
+          <cylinderGeometry args={[1.7, 1.7, PROJECT_TREE_HEIGHT, 8]} />
+          <meshBasicMaterial colorWrite={false} depthWrite={false} />
+        </mesh>
+      </group>
+    );
+  },
+);
+
+/** A project tree (appears once its model has loaded, a moment after page load). */
+export const ProjectTree = forwardRef<ProjectTreeHandle, GroupProps & { accent: string; variant?: number }>(
+  function ProjectTree({ variant = 0, ...props }, ref) {
+    return (
+      <Suspense fallback={null}>
+        <ModelProjectTree ref={ref} variant={variant} {...props} />
+      </Suspense>
+    );
+  },
+);

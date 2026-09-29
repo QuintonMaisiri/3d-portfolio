@@ -1,0 +1,207 @@
+@import "tailwindcss";
+
+/*
+ * Content colours come from CSS variables so the same section components can
+ * render on the dark journey panel and on the light "Read as a page" view.
+ * All ink/surface pairs below pass WCAG AA for body text.
+ */
+@theme inline {
+  --font-display: var(--font-cinzel);
+  --font-sans: var(--font-inter);
+
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-line: var(--line);
+  --color-surface: var(--surface);
+  --color-field: var(--field);
+  --color-on-accent: var(--on-accent);
+}
+
+:root {
+  --night: #0b0c10;
+}
+
+/* Dark translucent panel over the world. --accent is set per region inline. */
+.theme-journey {
+  color-scheme: dark;
+  scrollbar-width: thin;
+  --ink: #f3efe4;
+  --muted: #cbc5b6;
+  --line: rgb(255 255 255 / 0.14);
+  --surface: rgb(13 14 19 / 0.84);
+  --field: rgb(255 255 255 / 0.06);
+  --on-accent: #15120d;
+}
+
+/* Conventional one-page portfolio. */
+.theme-page {
+  color-scheme: light;
+  --ink: #1f1c17;
+  --muted: #564f43;
+  --accent: #82540f;
+  --line: #e0d8c6;
+  --surface: #fffdf8;
+  --field: #ffffff;
+  --on-accent: #fffdf8;
+}
+
+html {
+  background: var(--night);
+  scrollbar-gutter: stable;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Journey is paused while the project dialog is open. */
+html.scroll-locked {
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Placeholder copy stays visibly unfinished until replaced. */
+.todo {
+  text-decoration: underline dashed;
+  text-underline-offset: 0.25em;
+  opacity: 0.85;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent, #e3c98e);
+  outline-offset: 3px;
+}
+
+/*
+ * Journey panel build-in. JourneyLayer sets --reveal (0..1) on the panel,
+ * --n (beat count) on the panel and --i (order) on each [data-beat]. Each
+ * beat rises out of a soft blur in turn. Keep in step with beatProgress()
+ * in lib/narrative.ts (BEAT_OVERLAP = 1.5). Without JS, --reveal defaults
+ * to 1 and everything is simply visible.
+ */
+.reveal {
+  --reveal: 1;
+  --n: 1;
+}
+
+/* With JS, panels hold still in the viewport; only opacity changes. Hidden until the narrative loop shows them (the hero is visible from first paint). */
+.js .panel-frame {
+  position: fixed;
+  inset: 0;
+}
+
+.js .panel-frame > .reveal:not([data-first]) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/*
+ * The hero is painted hidden when JS is on, so it can emerge from the fog
+ * instead of flashing in. If the narrative loop never starts (a script
+ * error), it fades in on its own after a few seconds.
+ */
+@property --reveal {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1;
+}
+
+.js .panel-frame > .reveal[data-first]:not([data-live]) {
+  --reveal: 0;
+  animation: reveal-fallback 0.8s ease 4s forwards;
+}
+
+@keyframes reveal-fallback {
+  to {
+    --reveal: 1;
+  }
+}
+
+/* "Begin the journey" chevron: a slow nudge downward. */
+@media (prefers-reduced-motion: no-preference) {
+  .nudge {
+    animation: nudge 2.4s ease-in-out infinite;
+  }
+}
+
+@keyframes nudge {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(4px);
+  }
+}
+
+.reveal [data-beat] {
+  --beat: clamp(0, calc((var(--reveal) * (var(--n) + 1.5) - var(--i, 0)) / 1.5), 1);
+  opacity: var(--beat);
+  transform: translateY(calc((1 - var(--beat)) * 14px));
+  filter: blur(calc((1 - var(--beat)) * 3px));
+}
+
+/* Narration subtitle: soft dark halo keeps it legible over any scene. */
+.caption {
+  --caption: 0;
+  letter-spacing: calc(0.02em + (1 - var(--caption)) * 0.08em);
+  text-shadow:
+    0 2px 18px rgb(0 0 0 / 0.85),
+    0 0 42px rgb(0 0 0 / 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal [data-beat] {
+    transform: none;
+    filter: none;
+  }
+}
+
+/*
+ * Short screens (common 1366x768 and 1280x720 laptops): tighter journey panels
+ * so every region's content fits without scrolling inside the panel.
+ */
+@media (max-height: 820px) {
+  .js .panel-frame {
+    padding-block: 3.75rem 1.25rem;
+  }
+
+  .theme-journey .reveal {
+    padding: 1.25rem 1.5rem;
+    font-size: 0.9375rem;
+    line-height: 1.45;
+  }
+
+  .theme-journey .reveal h1 {
+    font-size: 2.25rem;
+    line-height: 2.5rem;
+  }
+
+  .theme-journey .reveal h2 {
+    font-size: 1.75rem;
+    line-height: 2.1rem;
+  }
+
+  .theme-journey .reveal header {
+    margin-bottom: 1rem;
+  }
+}
+
+/* Very short screens (1280x720): list-heavy panels (Experience, Projects) tighten further. */
+@media (max-height: 740px) {
+  .theme-journey .reveal {
+    font-size: 0.875rem;
+  }
+
+  .theme-journey .reveal ol > li:not(:last-child),
+  .theme-journey .reveal ul > li:not(:last-child) {
+    margin-block-end: 0.85rem;
+  }
+}
