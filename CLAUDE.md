@@ -102,6 +102,10 @@ Where content is missing (project write-ups, problem-solving case studies, testi
 
 **Current phase:** All build phases complete (0 to 9 plus final pass), real models rolled out to all regions. **Next:** Quinton's end-to-end debug pass on real hardware, content TODOs, then deploy (awaiting his go-ahead and Vercel account).
 
+### Git and v2
+- Local git repo (not pushed; no remote). Branches: `main` and `v1` hold v1 (commit `e8f4d8d`); `v2` holds the v2 audit and plan in `docs/v2-plan.md`. Commits authored as maisiriquinton@gmail.com (repo-local config).
+- v2 direction (Quinton, 2026-09-29): **immersion first** (content may sit behind discovery; "Read as a page" is the guaranteed shortcut), game-like exploration. Movement model left to the audit, which recommends "glades and roads": walk freely within each region, authored travel between them. Awaiting Quinton's approval of the plan before any v2 code. Once approved, the "readability wins" rule above needs rewording for v2.
+
 ### Done in Phase 0
 - Hand-scaffolded Next 16 (App Router, Turbopack), TS strict + `noUncheckedIndexedAccess`, Tailwind v4, ESLint flat config.
 - `lib/regions.ts`: 8 regions with equal eighths, palettes, rough waypoints, panel side. `lib/journey.ts`: `regionBlend()` splits progress into dwell/travel. `lib/store.ts`: Zustand with `rawProgress`, `smoothProgress`, `activeRegion`, `viewMode`, `webgl`, `reducedMotion`, `openProjectId`.
