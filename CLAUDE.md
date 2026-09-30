@@ -104,7 +104,7 @@ Where content is missing (project write-ups, problem-solving case studies, testi
 
 ### Git and v2
 - Local git repo (not pushed; no remote). Branches: `main` and `v1` hold v1 (commit `e8f4d8d`); `v2` holds the v2 audit and plan in `docs/v2-plan.md`. Commits authored as maisiriquinton@gmail.com (repo-local config).
-- v2 direction (Quinton, 2026-09-29): **immersion first** (content may sit behind discovery; "Read as a page" is the guaranteed shortcut), game-like exploration. Movement model left to the audit, which recommends "glades and roads": walk freely within each region, authored travel between them. Awaiting Quinton's approval of the plan before any v2 code. Once approved, the "readability wins" rule above needs rewording for v2.
+- v2 direction (Quinton, 2026-09-29): **immersion first** (content may sit behind discovery; "Read as a page" is the guaranteed shortcut), game-like exploration. Movement model left to the audit, which recommends "glades and roads": walk freely within each region, authored travel between them. **Plan approved 2026-09-30**: model B, Forest as vertical slice, discoveries persist (localStorage), sound muted for now (engine built, silent). **On the v2 branch, immersion-first supersedes "readability wins" and the 60-second rule**: content may sit behind discovery, with the Codex's first page and page view as the guaranteed shortcuts. Next: V2.0 Foundation (character, controller, camera, input, test glade).
 
 ### Done in Phase 0
 - Hand-scaffolded Next 16 (App Router, Turbopack), TS strict + `noUncheckedIndexedAccess`, Tailwind v4, ESLint flat config.

@@ -2,9 +2,12 @@
 
 Branch: `v2` (from `v1`, commit `e8f4d8d`). This document is the audit of v1 and the plan for v2. Nothing in v2 is built yet.
 
-Decisions already made by Quinton for v2:
+Decisions made by Quinton for v2 (2026-09-29 and 2026-09-30):
 - **Immersion first.** Content may sit behind discovery. "Read as a page" stays as the one guaranteed shortcut.
-- **Movement model:** the audit decides. The recommendation is in section 3.
+- **Movement model B approved:** explore freely within each region, authored travel between them (section 3).
+- **Vertical slice:** the Forest (Claude's choice; it has the richest interaction, the animated chests, and the approved v1 art).
+- **Discoveries persist** between visits (localStorage).
+- **Sound: muted for now.** The audio engine is built, but v2 ships silent, with visual feedback only, until audio is sourced.
 
 ---
 
@@ -273,6 +276,31 @@ The discovery mechanics only land if what you discover is real. These were TODOs
 
 ---
 
+### 10.1 Where to find each piece of content
+
+| Content | Where to look | What to pull out | Goes in |
+|---|---|---|---|
+| **Bugs you've faced** (Peaks, 3 to 5) | Your own git history and pull requests on the Uncommon and freelance repos (search commit messages for "fix", "bug", "hotfix"); GitHub Issues or your team's ticket tracker; incident or post-mortem notes; Slack or Teams threads where you debugged something; code review comments; the five CV candidates above | The symptom (what broke, who it hurt), the root cause, what you tried, the fix, and the outcome (only numbers you can stand behind) | `content/problems.ts` |
+| **Project write-ups** (Forest chests, 6) | Each repo's README and docs; product briefs or specs; release notes or changelogs; your own notes; the live apps and staging sites for screenshots; stakeholder emails confirming results | Problem, your role, stack, key decisions, result, public links, one screenshot or short screen recording per project | `content/projects.ts`; images in `public/projects/<id>/` |
+| **Testimonials** (Caves crystals) | LinkedIn (your profile, Recommendations section, and ask for new ones there); your managers and team leads at Uncommon; the Revixions contact; the BioDive UAE client; mentees or learners you supported; freelance clients' emails or reviews | The quote verbatim, the person's name and role, how you worked together, and their permission to publish it | `content/testimonials.ts` |
+| **What drives you** (Archive cabinet) | You. Your LinkedIn About section, past cover letters or personal statements can be a starting point | One or two honest sentences | `content/about.ts` |
+| **AI/LLM skill evidence** (Forge potion shelf) | The project or repo where you integrated an LLM; its README or PR | What you built with it and where | `content/skills.ts` |
+| **Easter eggs** (optional secret spots) | You: hobbies, a favourite tool, a running joke from work | A few short lines | new `content/secrets.ts` (added in V2.4+) |
+
+### 10.2 Where to look for the missing assets
+
+Always check the licence on each individual model before downloading. Some sites mix licences per model.
+
+| Asset | Where to look | Licence to check | Notes |
+|---|---|---|---|
+| Animated bugs or beetles | quaternius.com (animal and creature packs); poly.pizza (search "beetle", "bug", "insect"); kenney.nl | Quaternius and Kenney publish CC0; Poly Pizza varies per model (CC0 or CC-BY) | Need idle and scuttle animations. If none fit, a static beetle with procedural leg wiggle is a fallback. |
+| Extra character animations (sit, kneel or open, push) | mixamo.com (free with an Adobe account); quaternius.com (animated character packs) | Mixamo: free to use in projects, but raw files can't be redistributed (fine for a built site) | Mixamo clips must be retargeted to the `CharacterArmature` rig; I'll handle retargeting. Download as FBX, "without skin". |
+| Raven or crow (rigged, fly and idle) | quaternius.com (animal packs); poly.pizza | As above | Any low-poly bird with a flap cycle works. |
+| Cliffs and large rock formations | Already covered by stacking the nature kit's rocks; kenney.nl nature kits if more are needed | CC0 | Optional. |
+| Parchment and leather textures (Codex UI) | ambientcg.com; polyhaven.com (textures) | Both CC0 | 1K or 2K is plenty. |
+| Ink-style display font | fonts.google.com | SIL Open Font License | I can pick a candidate for you to approve. |
+| Audio (later, muted for now) | freesound.org (filter by CC0); kenney.nl (audio packs, CC0); sonniss.com (the free "GameAudioGDC" bundles, royalty free) | Freesound varies per sound; filter to CC0 | Not needed until sound is switched on. |
+
 ## 11. Architecture for v2
 
 - **State:** Zustand stores for `player` (position, region, state machine: idle, walk, interact, travel, seated), `discoveries` (a set of item ids, persisted to localStorage so returning visitors keep their Codex), `codex` (open state and current page), `audio` and `settings`.
@@ -346,10 +374,10 @@ Each phase ends with a review, as in v1.
 
 ---
 
-## 16. Open questions for Quinton
+## 16. Answered questions
 
-1. Approve movement model B (explore within regions, travel between them)?
-2. Is the Forest the right region for the vertical slice?
-3. Should discoveries persist between visits (localStorage), so returning visitors keep their Codex?
-4. Sound: are you happy to source the audio in section 9.2, or should the first versions ship muted with visual feedback only?
-5. Which content from section 10 can you supply first? The Peaks bugs and the project write-ups unlock the two most distinctive regions.
+1. Movement model B: **approved**.
+2. Vertical slice: **the Forest** (left to Claude).
+3. Discoveries persist between visits: **yes**.
+4. Sound: **muted for now**.
+5. Content: sourcing guide in section 10.1, assets in section 10.2. The Peaks bugs and the project write-ups unlock the two most distinctive regions, so those are the most valuable to gather first.
