@@ -31,7 +31,10 @@ export function Codex() {
   // Small screens show contents or a page; wide screens show both.
   const [showing, setShowing] = useState<"contents" | "page">("page");
 
-  const page = pageId ? codexPageById[pageId] : undefined;
+  // "@map" (from a waystone): open on the contents, where visited regions can be travelled to.
+  const mapMode = pageId === "@map";
+  const pane = mapMode ? "contents" : showing;
+  const page = pageId && !mapMode ? codexPageById[pageId] : undefined;
   const written = page && found.includes(page.id) ? page : undefined;
   const fresh = written ? unread.includes(written.id) : false;
 
@@ -86,7 +89,7 @@ export function Codex() {
         <div className="theme-codex codex-paper relative grid h-[min(44rem,calc(100dvh-3rem))] overflow-hidden rounded-xl md:grid-cols-[19rem_1fr]">
           <nav
             aria-label="Codex contents"
-            className={`codex-contents overflow-y-auto border-line p-5 sm:p-6 md:block md:border-r ${showing === "contents" ? "block" : "hidden"}`}
+            className={`codex-contents overflow-y-auto border-line p-5 sm:p-6 md:block md:border-r ${pane === "contents" ? "block" : "hidden"}`}
           >
             <h2 id={TITLE_ID} className="font-display text-xl font-semibold text-ink">
               The Adventurer&apos;s Codex
@@ -164,7 +167,7 @@ export function Codex() {
           <div
             ref={pageRef}
             tabIndex={-1}
-            className={`overflow-y-auto p-6 focus:outline-none sm:p-8 md:block md:p-10 ${showing === "page" ? "block" : "hidden"}`}
+            className={`overflow-y-auto p-6 focus:outline-none sm:p-8 md:block md:p-10 ${pane === "page" ? "block" : "hidden"}`}
           >
             <button
               type="button"
@@ -177,6 +180,13 @@ export function Codex() {
               <div key={written.id} className={fresh ? "ink-in" : undefined}>
                 {fresh ? <p className="sr-only" role="status">Page written: {written.title}</p> : null}
                 <CodexPageContent page={written} />
+              </div>
+            ) : mapMode ? (
+              <div>
+                <h2 className="font-display text-2xl font-semibold text-ink">Where to?</h2>
+                <p className="mt-3 text-ink">
+                  The waystones remember every region you have set foot in. Choose one in the contents and select Travel here.
+                </p>
               </div>
             ) : (
               <div>

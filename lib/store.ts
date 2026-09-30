@@ -45,6 +45,10 @@ interface CodexState {
   /** The Codex journal is open (the world pauses behind it), at this page if set. */
   codexOpen: boolean;
   codexPage: string | null;
+  /** Explore mode: the screen fades to black while the adventurer is moved (fast travel). */
+  fading: boolean;
+  /** Explore mode: the narration line shown during a travel scene, if any. */
+  travelCaption: string | null;
 
   setRawProgress: (p: number) => void;
   setSmoothProgress: (p: number) => void;
@@ -63,6 +67,8 @@ interface CodexState {
   requestInteract: (id: string | null) => void;
   openCodex: (page?: string | null) => void;
   closeCodex: () => void;
+  setFading: (fading: boolean) => void;
+  setTravelCaption: (caption: string | null) => void;
 }
 
 export const useCodex = create<CodexState>()((set, get) => ({
@@ -84,6 +90,8 @@ export const useCodex = create<CodexState>()((set, get) => ({
   interactRequest: null,
   codexOpen: false,
   codexPage: null,
+  fading: false,
+  travelCaption: null,
 
   setRawProgress: (rawProgress) => set({ rawProgress }),
   setSmoothProgress: (smoothProgress) => set({ smoothProgress }),
@@ -121,6 +129,12 @@ export const useCodex = create<CodexState>()((set, get) => ({
   requestInteract: (interactRequest) => set({ interactRequest }),
   openCodex: (page = null) => set((s) => ({ codexOpen: true, codexPage: page ?? s.codexPage })),
   closeCodex: () => set({ codexOpen: false }),
+  setFading: (fading) => {
+    if (get().fading !== fading) set({ fading });
+  },
+  setTravelCaption: (travelCaption) => {
+    if (get().travelCaption !== travelCaption) set({ travelCaption });
+  },
   hoverQuote: (hoveredQuoteId) => {
     if (get().hoveredQuoteId !== hoveredQuoteId) set({ hoveredQuoteId });
   },

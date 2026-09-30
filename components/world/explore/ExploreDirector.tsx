@@ -1,7 +1,7 @@
 "use client";
 
 import { useFrame, useThree } from "@react-three/fiber";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { colliderAt, colliderCount, collidersNear, updateColliders } from "@/lib/colliders";
 import { useDiscoveries } from "@/lib/discoveries";
 import { getInteractable, interaction } from "@/lib/interactables";
@@ -12,6 +12,8 @@ import { isRegionId, regions } from "@/lib/regions";
 import { useCodex } from "@/lib/store";
 import { journey } from "@/lib/timeline";
 import { weather } from "@/lib/weather";
+import { updateStreaming } from "@/lib/streaming";
+import { gates, nearestRoad, roadPoint, travel } from "@/lib/road";
 
 /** Colliders are rebuilt at most this often while models are still streaming in. */
 const COLLIDER_REBUILD_SECONDS = 0.4;
@@ -30,14 +32,18 @@ export function ExploreDirector() {
   const sinceRebuild = useRef(Infinity);
 
   // Enter the world at a deep-linked region (#forest), else wherever the visitor last was.
-  useEffect(() => {
+  // Done during the first render (before the regions render), so only the regions
+  // around the starting point are built.
+  useState(() => {
     const hash = window.location.hash.slice(1);
     const store = useCodex.getState();
     const start = isRegionId(hash) ? hash : store.activeRegion;
     spawnPoint(start, player.position);
     player.teleported = true;
     journey.position = journeyPositionAt(player.position.z);
-  }, []);
+    updateStreaming(journey.position, false);
+    return true;
+  });
 
   useEffect(() => attachInput(gl.domElement), [gl]);
 
@@ -46,12 +52,13 @@ export function ExploreDirector() {
     if (gl.extensions.has("KHR_parallel_shader_compile")) void gl.compileAsync(scene, camera);
     else gl.compile(scene, camera);
     if (process.env.NODE_ENV === "development")
-      Object.assign(window, { __codex: { journey, camera, narrative, store: useCodex, weather, scene, player, input, colliderCount, collidersNear, colliderAt, getInteractable, interaction, discoveries: useDiscoveries } });
+      Object.assign(window, { __codex: { journey, camera, narrative, store: useCodex, weather, scene, player, input, colliderCount, collidersNear, colliderAt, getInteractable, interaction, discoveries: useDiscoveries, road: { travel, gates, roadPoint, nearestRoad } } });
   }, [gl, scene, camera]);
 
   useFrame((_, delta) => {
     const { reducedMotion, setActiveRegion } = useCodex.getState();
     journey.position = journeyPositionAt(player.position.z);
+    updateStreaming(journey.position);
     updateExploreNarrative(journey.position, delta, reducedMotion);
     const here = regions[playerRegionIndex(journey.position)]!.id;
     setActiveRegion(here);

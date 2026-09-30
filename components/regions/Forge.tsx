@@ -22,6 +22,7 @@ import {
   type PedestalHandle,
 } from "./models/forge";
 import { Interactable } from "@/components/world/explore/Interaction";
+import { useRegionMounted } from "@/lib/streaming";
 import { ambientMotion, groundAt, RegionSlot, scatter, useRegionFrame } from "./shared";
 
 const region = regionById.forge;
@@ -163,12 +164,14 @@ export function Forge() {
   const crustGroup = useRef<Group>(null);
   const pedestals = useRef<(PedestalHandle | null)[]>([]);
 
+  // Rerun when the scenery is (re)built as the camera approaches.
+  const mounted = useRegionMounted(region.index);
   useLayoutEffect(() => {
     const mesh = orbMesh.current;
     if (!mesh) return;
     orbs.forEach((orb, i) => mesh.setColorAt(i, tint.set(groupColor(orb.group))));
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  }, [orbs]);
+  }, [orbs, mounted]);
 
   useRegionFrame(region, ({ clock }, delta) => {
     const t = clock.elapsedTime;

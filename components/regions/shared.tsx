@@ -1,11 +1,13 @@
 "use client";
 
 import { useFrame, type RootState } from "@react-three/fiber";
-import { useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import type { Group } from "three";
 import { clearOfCamera } from "@/lib/cameraPath";
 import { mulberry32, between } from "@/lib/random";
+import { applyShadowFlags } from "@/lib/shadows";
 import { useCodex } from "@/lib/store";
+import { shaderCompile, useRegionMounted } from "@/lib/streaming";
 import { groundHeight } from "@/lib/terrain";
 import { distanceTo } from "@/lib/timeline";
 import type { RegionConfig, Vec3 } from "@/lib/types";
@@ -15,17 +17,25 @@ import type { Placement } from "@/components/world/Scatter";
 export const VISIBLE_RANGE = 1.5;
 
 /**
- * Positions a region at its centre and hides it (skipping render and its
- * frame callbacks via useRegionFrame) when the camera is far away.
+ * Positions a region at its centre. Its scenery is only built while the
+ * camera is near (see lib/streaming), and hidden (skipping render and its
+ * frame callbacks via useRegionFrame) unless it's close enough to be seen.
  */
 export function RegionSlot({ region, children }: { region: RegionConfig; children: ReactNode }) {
   const ref = useRef<Group>(null);
+  const mounted = useRegionMounted(region.index);
   useFrame(() => {
     if (ref.current) ref.current.visible = distanceTo(region.index) < VISIBLE_RANGE;
   });
+  // Newly built scenery: shadow flags for its primitives (models set their own), and compile its shaders ahead of view.
+  useEffect(() => {
+    if (!mounted || !ref.current) return;
+    applyShadowFlags(ref.current);
+    shaderCompile.requested = true;
+  }, [mounted]);
   return (
     <group ref={ref} position={[region.center[0], 0, region.center[2]]}>
-      {children}
+      {mounted ? children : null}
     </group>
   );
 }

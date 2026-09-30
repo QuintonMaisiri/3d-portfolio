@@ -4,7 +4,8 @@ import { PerformanceMonitor } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Bloom, EffectComposer, N8AO } from "@react-three/postprocessing";
 import { lazy, Suspense, useEffect } from "react";
-import { Mesh, MeshBasicMaterial, type Material } from "three";
+import { applyShadowFlags } from "@/lib/shadows";
+import { shaderCompile } from "@/lib/streaming";
 import { Regions } from "@/components/regions";
 import { selectJourneyPaused, useCodex } from "@/lib/store";
 import { windTime } from "@/lib/wind";
@@ -15,6 +16,7 @@ import { Grade } from "./Grade";
 import { ExploreDirector } from "./explore/ExploreDirector";
 import { FollowCamera } from "./explore/FollowCamera";
 import { InteractionSystem } from "./explore/Interaction";
+import { Waystones } from "./explore/Waystones";
 import { Player, PlayerController } from "./explore/Player";
 import { SkyDome } from "./SkyDome";
 import { Terrain } from "./Terrain";
@@ -40,26 +42,25 @@ function WindClock() {
   return null;
 }
 
-/** Lit, opaque surfaces cast and receive shadows; glows, water, mist and hit areas don't. */
-const castsShadow = (material: Material | Material[]) => {
-  const m = Array.isArray(material) ? material[0] : material;
-  return !!m && !(m instanceof MeshBasicMaterial) && !m.transparent && m.colorWrite !== false;
-};
-
 /**
- * Flags shadow casters and receivers once every region has mounted (it sits
- * after <Regions> so its effect runs after theirs). The terrain only receives.
+ * Flags shadow casters and receivers once the first regions have mounted (it
+ * sits after <Regions> so its effect runs after theirs). Regions streamed in
+ * later flag their own (RegionSlot). The terrain only receives.
  */
 function ShadowSetup() {
   const scene = useThree((s) => s.scene);
-  useEffect(() => {
-    scene.traverse((object) => {
-      if (!(object instanceof Mesh)) return;
-      const lit = castsShadow(object.material);
-      object.receiveShadow = lit;
-      object.castShadow = lit && object.geometry.type !== "PlaneGeometry";
-    });
-  }, [scene]);
+  useEffect(() => applyShadowFlags(scene), [scene]);
+  return null;
+}
+
+/** Compiles newly streamed-in scenery's shaders a frame after it mounts, so it doesn't hitch when first seen. */
+function StreamCompiler() {
+  useFrame(({ gl, scene, camera }) => {
+    if (!shaderCompile.requested) return;
+    shaderCompile.requested = false;
+    if (gl.extensions.has("KHR_parallel_shader_compile")) void gl.compileAsync(scene, camera);
+    else gl.compile(scene, camera);
+  });
   return null;
 }
 
@@ -99,6 +100,7 @@ export default function WorldCanvas({ mode }: { mode: "explore" | "journey" }) {
           <Suspense fallback={null}>
             <Player />
           </Suspense>
+          <Waystones />
         </>
       ) : (
         <>
@@ -112,6 +114,7 @@ export default function WorldCanvas({ mode }: { mode: "explore" | "journey" }) {
       <Terrain />
       <Regions />
       <ShadowSetup />
+      <StreamCompiler />
       {rich ? (
         <EffectComposer multisampling={0}>
           {/* Soft contact shadows where things meet the ground and each other. */}

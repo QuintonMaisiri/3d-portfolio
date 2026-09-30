@@ -26,6 +26,11 @@ export function ExploreHud() {
   const active = useCodex((s) => s.activeRegion);
   const prompt = useCodex((s) => s.prompt);
   const codexOpen = useCodex((s) => s.codexOpen);
+  const fading = useCodex((s) => s.fading);
+  const caption = useCodex((s) => s.travelCaption);
+  // Keep the last line on screen while it fades out.
+  const [lastCaption, setLastCaption] = useState<string | null>(null);
+  if (caption && caption !== lastCaption) setLastCaption(caption);
   const found = useDiscoveries((s) => s.found.length);
   const unread = useDiscoveries((s) => s.unread.length);
   const [hint, setHint] = useState(true);
@@ -85,6 +90,20 @@ export function ExploreHud() {
           {region.section}
         </p>
       </div>
+
+      {/* Fast travel fades through black (the adventurer is moved while it's dark). */}
+      <div
+        aria-hidden="true"
+        className={`absolute inset-0 bg-black transition-opacity duration-[450ms] ease-in-out ${fading ? "opacity-100" : "opacity-0"}`}
+      />
+
+      {/* Travel scene narration: decorative scene-setting, so hidden from assistive tech. */}
+      <p
+        aria-hidden="true"
+        className={`caption absolute inset-x-0 bottom-[14vh] px-6 text-center font-display text-2xl text-[#f7f3ea] transition-opacity duration-1000 md:text-4xl ${caption ? "opacity-100" : "opacity-0"}`}
+      >
+        {lastCaption ?? ""}
+      </p>
 
       {/* What's in reach. A real button, so taps and screen readers can use it too. */}
       {prompt && !codexOpen ? (

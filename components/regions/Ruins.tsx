@@ -25,6 +25,7 @@ import {
 import { clearOfCamera } from "@/lib/cameraPath";
 import { registerSurface } from "@/lib/surfaces";
 import { Interactable } from "@/components/world/explore/Interaction";
+import { useRegionMounted } from "@/lib/streaming";
 import { ambientMotion, RegionSlot, useRegionFrame } from "./shared";
 
 const region = regionById.ruins;
@@ -102,6 +103,8 @@ export function Ruins() {
     [],
   );
 
+  // Rerun when the scenery is (re)built as the camera approaches.
+  const mounted = useRegionMounted(region.index);
   useLayoutEffect(() => {
     const mesh = causeway.current;
     if (!mesh) return;
@@ -114,7 +117,7 @@ export function Ruins() {
     });
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  }, []);
+  }, [mounted]);
 
   useRegionFrame(region, ({ clock }) => {
     const t = clock.elapsedTime;

@@ -24,6 +24,7 @@ import {
   type BoltHandle,
 } from "./models/peaks";
 import { Interactable } from "@/components/world/explore/Interaction";
+import { useRegionMounted } from "@/lib/streaming";
 import { ambientMotion, groundAt, RegionSlot, scatter, useRegionFrame } from "./shared";
 
 const region = regionById.peaks;
@@ -140,6 +141,8 @@ export function Peaks() {
   const snowPoints = useRef<Points>(null);
   const bolt = useRef<BoltHandle>(null);
 
+  // Rerun when the scenery is (re)built as the camera approaches.
+  const mounted = useRegionMounted(region.index);
   useLayoutEffect(() => {
     const points = markers.current;
     if (!points) return;
@@ -151,7 +154,7 @@ export function Peaks() {
     });
     position.needsUpdate = true;
     color.needsUpdate = true;
-  }, []);
+  }, [mounted]);
 
   useRegionFrame(region, ({ clock }, delta) => {
     const t = clock.elapsedTime;

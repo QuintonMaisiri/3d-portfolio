@@ -23,6 +23,7 @@ import {
 } from "./models/campfire";
 import { GrassField } from "@/components/world/GrassField";
 import { Interactable } from "@/components/world/explore/Interaction";
+import { useRegionMounted } from "@/lib/streaming";
 import { ambientMotion, groundAt, RegionSlot, scatter, useRegionFrame } from "./shared";
 
 const region = regionById.campfire;
@@ -97,6 +98,8 @@ export function Campfire() {
   const halo = useRef<Points>(null);
 
   // The moon's halo: one big soft glow, set once.
+  // Rerun when the scenery is (re)built as the camera approaches.
+  const mounted = useRegionMounted(region.index);
   useLayoutEffect(() => {
     const h = halo.current;
     if (!h) return;
@@ -106,7 +109,7 @@ export function Campfire() {
     color.setXYZ(0, 0.35, 0.34, 0.3);
     position.needsUpdate = true;
     color.needsUpdate = true;
-  }, []);
+  }, [mounted]);
 
   useRegionFrame(region, ({ clock }, delta) => {
     const t = clock.elapsedTime;

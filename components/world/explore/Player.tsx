@@ -21,7 +21,11 @@ import { resolveCircle } from "@/lib/colliders";
 import { interaction } from "@/lib/interactables";
 import { input, moveAxes } from "@/lib/input";
 import { damp } from "@/lib/journey";
+import { narration } from "@/content/narration";
 import { clampToValley, PLAYER, player, spawnPoint } from "@/lib/player";
+import { REGION_COUNT, regions } from "@/lib/regions";
+import { gates, indexPerUnit, nearestRoad, roadPoint, travel } from "@/lib/road";
+import type { RegionId } from "@/lib/types";
 import { floorAt } from "@/lib/surfaces";
 import { playerPush } from "@/lib/wind";
 import { useCodex } from "@/lib/store";
@@ -40,6 +44,29 @@ const WALK_FROM = 0.25;
 const RUN_FROM = 5;
 /** A click-to-walk that makes no progress for this long (blocked) is given up. */
 const STUCK_SECONDS = 0.6;
+/** Fast travel: the screen fades to black for this long before the adventurer is moved (matches the HUD's fade). */
+const FADE_MS = 450;
+/** Travel scenes: the adventurer's pace along the road (a jog), and how close to the road a gate counts. */
+const TRAVEL_SPEED = 5.6;
+const ROAD_NEAR = 6;
+/** How far ahead along the road the adventurer steers, in road samples. */
+const TRAVEL_LOOK_AHEAD = 8;
+
+function startTravel(stretch: number, dir: 1 | -1, from: number, end: number) {
+  travel.active = true;
+  travel.dir = dir;
+  travel.stretch = stretch;
+  travel.index = from;
+  travel.end = end;
+  player.target = null;
+  // Narration belongs to leaving a region onward; going back stays silent.
+  useCodex.getState().setTravelCaption(dir > 0 ? (narration[regions[stretch]!.id] ?? null) : null);
+}
+
+function endTravel() {
+  travel.active = false;
+  useCodex.getState().setTravelCaption(null);
+}
 
 const raycaster = new Raycaster();
 const ndc = new Vector2();
@@ -81,21 +108,35 @@ const angleTo = (a: number, b: number) => Math.atan2(Math.sin(b - a), Math.cos(b
  */
 export function PlayerController() {
   const stuck = useRef(0);
+  const pendingTravel = useRef<{ id: RegionId; at: number } | null>(null);
+  // The first placement (entering the world) happens under the opening, without a fade.
+  const placed = useRef(false);
 
   useFrame(({ camera }, delta) => {
     // Capped so a long stall (tab switch, shader compile) can't fling the adventurer through a prop.
     const dt = Math.min(delta, 0.1);
     const store = useCodex.getState();
 
-    // Fast travel from the region map (or entering the world at a region).
+    // Fast travel (region map, Codex, waystones, entering the world): fade to black, move, fade back in.
+    const now = performance.now();
     if (store.travelRequest) {
-      spawnPoint(store.travelRequest, player.position);
+      const instant = store.reducedMotion || !placed.current;
+      pendingTravel.current = { id: store.travelRequest, at: now + (instant ? 0 : FADE_MS) };
+      if (!instant) store.setFading(true);
+      store.travelTo(null);
+      if (travel.active) endTravel();
+    }
+    if (pendingTravel.current && now >= pendingTravel.current.at) {
+      spawnPoint(pendingTravel.current.id, player.position);
+      pendingTravel.current = null;
+      placed.current = true;
       player.velocity.set(0, 0, 0);
       player.heading = Math.PI;
       player.target = null;
       player.teleported = true;
       orbit.yaw = 0;
-      store.travelTo(null);
+      travel.last = -1;
+      store.setFading(false);
     }
 
     // A click or tap: walk there (or, with reduced motion, simply be there).
@@ -113,16 +154,37 @@ export function PlayerController() {
       }
     }
 
+    // Travel scenes: walking out of a region through its road gate carries the
+    // adventurer on along the road to the next (or back to the previous).
+    const onRoad = nearestRoad(player.position.x, player.position.z, travel.last);
+    if (!travel.active && !store.reducedMotion && !interaction.active && travel.last >= 0 && onRoad.distance < ROAD_NEAR) {
+      for (let i = 0; i < REGION_COUNT - 1; i++) {
+        const g = gates(i);
+        if (travel.last < g.exit && onRoad.index >= g.exit) startTravel(i, 1, onRoad.index, g.arriveForward);
+        else if (travel.last > g.back && onRoad.index <= g.back) startTravel(i, -1, onRoad.index, g.arriveBack);
+      }
+    }
+    travel.last = onRoad.index;
+
     // Intent: keys steer relative to the camera; otherwise head for the tapped spot.
     // While using something the adventurer stands still and turns to it.
     const using = interaction.active;
     const axes = using ? { x: 0, y: 0, run: false } : moveAxes();
+    // Turning away, stepping back, or tapping somewhere ends a travel scene: control is theirs again.
+    if (travel.active && (axes.y < 0 || axes.x !== 0 || player.target)) endTravel();
     let speed = 0;
     desired.set(0, 0, 0);
     if (using) {
       player.target = null;
       const facing = Math.atan2(using.position.x - player.position.x, using.position.z - player.position.z);
       player.heading += angleTo(player.heading, facing) * (1 - Math.exp(-10 * dt));
+    } else if (travel.active) {
+      travel.index += travel.dir * TRAVEL_SPEED * dt * indexPerUnit;
+      const ahead = roadPoint(travel.index + travel.dir * TRAVEL_LOOK_AHEAD, desired);
+      desired.set(ahead.x - player.position.x, 0, ahead.z - player.position.z).normalize();
+      speed = TRAVEL_SPEED;
+      player.moved = true;
+      if (travel.dir > 0 ? travel.index >= travel.end : travel.index <= travel.end) endTravel();
     } else if (axes.x || axes.y) {
       player.target = null;
       const sin = Math.sin(orbit.yaw);

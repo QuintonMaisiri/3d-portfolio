@@ -10,6 +10,7 @@ import { interaction } from "@/lib/interactables";
 import { damp, easeOutCubic } from "@/lib/journey";
 import { narrative } from "@/lib/narrative";
 import { player } from "@/lib/player";
+import { roadPoint, travel } from "@/lib/road";
 import { useCodex } from "@/lib/store";
 import { groundHeight } from "@/lib/terrain";
 
@@ -36,7 +37,14 @@ const PORTRAIT_REACH = 1.35;
 /** Using something: how far the look point moves toward it, and how much closer the camera comes. */
 const SHOT = { toward: 0.45, closer: 0.7 };
 
+/** Travel scenes: the camera films from the side of the road, a little behind, looking ahead. */
+const TRAVEL_SHOT = { side: 8.5, up: 3.4, back: 2.5, lookAhead: 5 };
+
 const focus = new Vector3();
+const roadA = new Vector3();
+const roadB = new Vector3();
+const shotPos = new Vector3();
+const shotLook = new Vector3();
 const shotFocus = new Vector3();
 const arm = new Vector3();
 const probe = new Vector3();
@@ -125,10 +133,43 @@ export function FollowCamera() {
     length.current = snap || allowed < length.current ? allowed : damp(length.current, allowed, 3, dt);
 
     camera.position.copy(focus).addScaledVector(arm, length.current);
+    shotLook.copy(focus);
+
+    // Travel scene: ease into a side-tracking shot along the road, and back out when it ends.
+    travel.weight = snap ? (travel.active ? 1 : 0) : damp(travel.weight, travel.active ? 1 : 0, travel.active ? 1.2 : 1.8, dt);
+    if (travel.weight > 0.001) {
+      roadPoint(travel.index, roadA);
+      roadPoint(travel.index + travel.dir * 6, roadB);
+      const fx = roadB.x - roadA.x;
+      const fz = roadB.z - roadA.z;
+      const len = Math.hypot(fx, fz) || 1;
+      // Alternate sides from stretch to stretch so consecutive journeys don't look the same.
+      const side = travel.stretch % 2 === 0 ? 1 : -1;
+      const sx = (-fz / len) * side;
+      const sz = (fx / len) * side;
+      shotPos.set(
+        player.position.x + sx * TRAVEL_SHOT.side - (fx / len) * TRAVEL_SHOT.back,
+        player.position.y + TRAVEL_SHOT.up,
+        player.position.z + sz * TRAVEL_SHOT.side - (fz / len) * TRAVEL_SHOT.back,
+      );
+      const ground = groundHeight(shotPos.x, shotPos.z) + 1.2;
+      if (shotPos.y < ground) shotPos.y = ground;
+      const w = travel.weight * travel.weight * (3 - 2 * travel.weight);
+      camera.position.lerp(shotPos, w);
+      shotLook.lerp(
+        roadB.set(
+          player.position.x + (fx / len) * TRAVEL_SHOT.lookAhead,
+          player.position.y + 1.2,
+          player.position.z + (fz / len) * TRAVEL_SHOT.lookAhead,
+        ),
+        w,
+      );
+    }
+
     const floor = groundHeight(camera.position.x, camera.position.z) + CLEARANCE;
     if (camera.position.y < floor) camera.position.y = floor;
-    camera.lookAt(focus);
-    cameraLookAt.copy(focus);
+    camera.lookAt(shotLook);
+    cameraLookAt.copy(shotLook);
     player.teleported = false;
   });
 

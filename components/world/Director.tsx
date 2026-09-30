@@ -6,6 +6,7 @@ import { useCodex } from "@/lib/store";
 import { narrative } from "@/lib/narrative";
 import { createMasterTimeline, journey } from "@/lib/timeline";
 import { weather } from "@/lib/weather";
+import { updateStreaming } from "@/lib/streaming";
 
 /**
  * Scrubs the paused master timeline with the smoothed scroll value. Mounted
@@ -35,6 +36,7 @@ export function Director() {
     timeline.progress(smoothProgress);
     // Reduced motion: no travel. The world snaps to the nearest region instead.
     if (reducedMotion) journey.position = Math.round(journey.position);
+    updateStreaming(journey.position);
     narrative.worldReady = true;
   });
 
