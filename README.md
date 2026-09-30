@@ -16,6 +16,14 @@ npm run typecheck
 
 Node 20.9 or later.
 
+## Explore the world (v2)
+
+The site opens as a walkable world: WASD or arrow keys to walk, Shift to run,
+drag to look, wheel to zoom, click to walk to a spot. On phones: tap to walk,
+drag to look, pinch to zoom. The region map on the right fast-travels.
+`?view=journey` shows v1's scroll-driven version; "Read as a page" shows
+everything as a conventional portfolio.
+
 ## Edit the content
 
 All copy lives in `content/`. Edit it there; the page view, the journey panels

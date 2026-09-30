@@ -58,6 +58,7 @@ export function Undergrowth({ items }: { items: readonly Placement[] }) {
           url={url}
           items={items.filter((_, k) => k % kinds.length === m)}
           look={UNDERGROWTH.rocks.includes(url) ? ROCK_LOOK : UNDERGROWTH_LOOK}
+          solid={UNDERGROWTH.rocks.includes(url)}
         />
       ))}
     </Suspense>
@@ -72,8 +73,8 @@ export function Mushrooms({ items }: { items: readonly Placement[]; color?: stri
   const shelves = items.filter((_, k) => k % 3 === 2).map((it) => ({ ...it, scale: (typeof it.scale === "number" ? it.scale : 1) * 0.5 }));
   return (
     <Suspense fallback={null}>
-      <ModelScatter url={`${MODELS}/mushroom.glb`} items={items.filter((_, k) => k % 3 !== 2)} look={MUSHROOM_LOOK} castShadow={false} />
-      <ModelScatter url={`${MODELS}/mushroom-shelf.glb`} items={shelves} look={MUSHROOM_LOOK} castShadow={false} />
+      <ModelScatter url={`${MODELS}/mushroom.glb`} items={items.filter((_, k) => k % 3 !== 2)} look={MUSHROOM_LOOK} castShadow={false} solid={false} />
+      <ModelScatter url={`${MODELS}/mushroom-shelf.glb`} items={shelves} look={MUSHROOM_LOOK} castShadow={false} solid={false} />
     </Suspense>
   );
 }
@@ -131,7 +132,7 @@ const ModelProjectTree = forwardRef<ProjectTreeHandle, GroupProps & { accent: st
       <group {...props}>
         <group scale={PROJECT_TREE_SCALE}>
           {parts.map((p, i) => (
-            <mesh key={i} geometry={p.geometry} material={p.material} castShadow receiveShadow />
+            <mesh key={i} geometry={p.geometry} material={p.material} castShadow receiveShadow userData={{ walkThrough: p.foliage }} />
           ))}
         </group>
         {/* Lanterns: soft additive glows hanging in the branches. */}

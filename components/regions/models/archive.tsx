@@ -72,7 +72,8 @@ export function Archway({ height, span, ...props }: GroupProps & { height: numbe
   return (
     <Suspense fallback={null}>
       <group {...props}>
-        <Model url={MODELS.ruins.arch} look={STONE_LOOK} scale={[sx, height / ARCH_OPENING.top, 2.2]} />
+        {/* Walked through, so it doesn't block (its pillars are thin; the route runs down its middle). */}
+        <Model url={MODELS.ruins.arch} look={STONE_LOOK} scale={[sx, height / ARCH_OPENING.top, 2.2]} solid={false} />
       </group>
     </Suspense>
   );

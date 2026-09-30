@@ -8,7 +8,9 @@ import { Header } from "@/components/nav/Header";
 import { RegionMap } from "@/components/nav/RegionMap";
 import { ScrollDriver } from "@/components/ScrollDriver";
 import { WorldLayer } from "@/components/world/WorldLayer";
-import { useCodex, VIEW_STORAGE_KEY, type ViewMode } from "@/lib/store";
+import { ExploreHud } from "@/components/world/explore/ExploreHud";
+import { isViewMode, useCodex, VIEW_STORAGE_KEY, type ViewMode } from "@/lib/store";
+import { isRegionId } from "@/lib/regions";
 import { detectGpu } from "@/lib/webgl";
 
 /**
@@ -18,14 +20,14 @@ import { detectGpu } from "@/lib/webgl";
  */
 function preferredView(weakGpu: boolean): ViewMode {
   const fromUrl = new URLSearchParams(window.location.search).get("view");
-  if (fromUrl === "page" || fromUrl === "journey") return fromUrl;
+  if (isViewMode(fromUrl)) return fromUrl;
   try {
-    const stored = localStorage.getItem(VIEW_STORAGE_KEY);
-    if (stored === "page" || stored === "journey") return stored;
+    // Only "page" is remembered: a saved v1 "journey" choice now means the world, which is explore.
+    if (localStorage.getItem(VIEW_STORAGE_KEY) === "page") return "page";
   } catch {
     // No storage: fall through to the default.
   }
-  return weakGpu ? "page" : "journey";
+  return weakGpu ? "page" : "explore";
 }
 
 /**
@@ -60,16 +62,26 @@ export function Experience() {
     if (previousView.current === viewMode) return;
     previousView.current = viewMode;
     const id = useCodex.getState().activeRegion;
-    document.getElementById(id)?.scrollIntoView({ behavior: "instant", block: "start" });
+    if (viewMode === "explore") {
+      // Entering the world: a region in the URL (#forest) wins over wherever the reader was.
+      const hash = window.location.hash.slice(1);
+      useCodex.getState().travelTo(isRegionId(hash) ? hash : id);
+    }
+    else document.getElementById(id)?.scrollIntoView({ behavior: "instant", block: "start" });
   }, [viewMode]);
 
   return (
     <>
       <Header />
       <RegionMap />
-      {viewMode === "journey" ? (
+      {viewMode === "explore" ? (
         <>
-          <WorldLayer enabled={webgl === "supported"} />
+          <WorldLayer enabled={webgl === "supported"} mode="explore" />
+          <ExploreHud />
+        </>
+      ) : viewMode === "journey" ? (
+        <>
+          <WorldLayer enabled={webgl === "supported"} mode="journey" />
           <JourneyLayer />
           <ScrollDriver />
         </>

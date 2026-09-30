@@ -51,8 +51,8 @@ export function Heather({ items }: { items: readonly Placement[] }) {
   const bushes = items.filter((_, k) => k % 3 !== 0);
   return (
     <Suspense fallback={null}>
-      <ModelMix urls={[MODELS.bush]} items={bushes} look={HEATHER_LOOK} scale={[0.42, 0.93, 0.42]} castShadow={false} />
-      <ModelMix urls={MODELS.flowers} items={flowers} look={FLOWER_LOOK} scale={[0.4, 0.89, 0.4]} castShadow={false} />
+      <ModelMix urls={[MODELS.bush]} items={bushes} look={HEATHER_LOOK} scale={[0.42, 0.93, 0.42]} castShadow={false} solid={false} />
+      <ModelMix urls={MODELS.flowers} items={flowers} look={FLOWER_LOOK} scale={[0.4, 0.89, 0.4]} castShadow={false} solid={false} />
     </Suspense>
   );
 }

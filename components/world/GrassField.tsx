@@ -87,7 +87,7 @@ export function GrassField({
   }, [region, target, area, seed, keep]);
 
   return (
-    <Scatter items={blades} vary={0.25} receiveShadow>
+    <Scatter items={blades} vary={0.25} receiveShadow userData={{ walkThrough: true }}>
       <primitive object={geometry} attach="geometry" />
       <primitive object={material} attach="material" />
     </Scatter>

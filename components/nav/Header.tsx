@@ -28,7 +28,7 @@ export function Header() {
       ) : (
         <button
           type="button"
-          onClick={() => setViewMode(page ? "journey" : "page", { persist: true })}
+          onClick={() => setViewMode(page ? "explore" : "page", { persist: true })}
           className={`${pill} font-medium hover:bg-[#121318]`}
         >
           {page ? "Enter the world" : "Read as a page"}

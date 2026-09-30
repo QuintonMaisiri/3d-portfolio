@@ -3,6 +3,7 @@
 import { useFrame } from "@react-three/fiber";
 import { Vector3 } from "three";
 import { cameraAim, cameraPath, shots, waypointU } from "@/lib/cameraPath";
+import { cameraLookAt } from "@/lib/cameraState";
 import { easeOutCubic, lerp } from "@/lib/journey";
 import { narrative } from "@/lib/narrative";
 import { REGION_COUNT } from "@/lib/regions";
@@ -18,9 +19,8 @@ const INTRO_OFFSET = new Vector3(0, 2.5, 7);
 
 // Scratch vectors, reused every frame (there is only ever one camera rig).
 const ahead = new Vector3();
-const aim = new Vector3();
-/** Where the camera is looking this frame. Read-only for others (the sun follows it). */
-export const cameraLookAt: Readonly<Vector3> = aim;
+/** Where the camera is looking this frame (shared: the sun follows it). */
+const aim = cameraLookAt;
 
 /**
  * The camera, as a film camera:

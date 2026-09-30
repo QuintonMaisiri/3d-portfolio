@@ -11,6 +11,9 @@ import { windTime } from "@/lib/wind";
 import { Atmosphere } from "./Atmosphere";
 import { CameraRig } from "./CameraRig";
 import { Director } from "./Director";
+import { ExploreDirector } from "./explore/ExploreDirector";
+import { FollowCamera } from "./explore/FollowCamera";
+import { Player, PlayerController } from "./explore/Player";
 import { SkyDome } from "./SkyDome";
 import { Terrain } from "./Terrain";
 
@@ -58,7 +61,7 @@ function ShadowSetup() {
   return null;
 }
 
-export default function WorldCanvas() {
+export default function WorldCanvas({ mode }: { mode: "explore" | "journey" }) {
   // The world stops rendering while the project dialog is open.
   const paused = useCodex(selectJourneyPaused);
   const quality = useCodex((s) => s.quality);
@@ -84,9 +87,22 @@ export default function WorldCanvas() {
     >
       {/* Sustained low frame rate: drop resolution, shadows, AO and bloom for the rest of the visit. */}
       <PerformanceMonitor onDecline={degrade} onFallback={degrade} flipflops={3} />
-      {/* Director must stay first: it advances the timeline the others read. */}
-      <Director />
-      <CameraRig />
+      {/* The director must stay first: it sets the journey position the others read. */}
+      {mode === "explore" ? (
+        <>
+          <ExploreDirector />
+          <PlayerController />
+          <FollowCamera />
+          <Suspense fallback={null}>
+            <Player />
+          </Suspense>
+        </>
+      ) : (
+        <>
+          <Director />
+          <CameraRig />
+        </>
+      )}
       <Atmosphere />
       <WindClock />
       <SkyDome />

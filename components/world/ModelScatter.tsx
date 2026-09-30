@@ -5,6 +5,7 @@ import type { ThreeElements } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
 import { Color, Mesh, MeshLambertMaterial, type BufferGeometry, type Material, type MeshStandardMaterial } from "three";
 import { DRACO_PATH } from "@/lib/assets";
+import { markCollidersDirty } from "@/lib/colliders";
 import { Scatter, type Placement } from "./Scatter";
 
 /** Material hooks (e.g. windSway) to put on a model's foliage. */
@@ -66,15 +67,17 @@ export function useModelParts(url: string, look: ModelLook = {}): ModelPart[] {
     return found;
   }, [scene, foliageTint, otherTint, wind, glowSource, glowColor]);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // New props in the scene: the explore mode's colliders need rebuilding.
+    markCollidersDirty();
+    return () => {
+      markCollidersDirty();
       parts.forEach((p) => {
         p.geometry.dispose();
         p.material.dispose();
       });
-    },
-    [parts],
-  );
+    };
+  }, [parts]);
   return parts;
 }
 
@@ -87,12 +90,15 @@ export function ModelScatter({
   items,
   look,
   castShadow = true,
+  solid = true,
 }: {
   url: string;
   items: readonly Placement[];
   look?: ModelLook;
   /** Distant copies can skip the shadow pass. */
   castShadow?: boolean;
+  /** False for things the adventurer walks through (undergrowth, flowers). Foliage never blocks. */
+  solid?: boolean;
 }) {
   const parts = useModelParts(url, look);
   if (!items.length) return null;
@@ -100,7 +106,13 @@ export function ModelScatter({
     <>
       {parts.map((part, i) => (
         // Added after the initial shadow pass, so set shadow flags here.
-        <Scatter key={i} items={items} castShadow={castShadow} receiveShadow>
+        <Scatter
+          key={i}
+          items={items}
+          castShadow={castShadow}
+          receiveShadow
+          userData={{ walkThrough: !solid || part.foliage }}
+        >
           <primitive object={part.geometry} attach="geometry" />
           <primitive object={part.material} attach="material" />
         </Scatter>
@@ -110,10 +122,15 @@ export function ModelScatter({
 }
 
 /** A single placed model (for one-off props). Suspends while loading. */
-export function Model({ url, look, ...props }: { url: string; look?: ModelLook } & ThreeElements["group"]) {
+export function Model({
+  url,
+  look,
+  solid = true,
+  ...props
+}: { url: string; look?: ModelLook; solid?: boolean } & ThreeElements["group"]) {
   const parts = useModelParts(url, look);
   return (
-    <group {...props}>
+    <group {...props} userData={{ walkThrough: !solid }}>
       {parts.map((part, i) => (
         <mesh key={i} geometry={part.geometry} material={part.material} castShadow receiveShadow />
       ))}
@@ -132,12 +149,14 @@ export function ModelMix({
   look,
   scale = 1,
   castShadow = true,
+  solid = true,
 }: {
   urls: readonly string[];
   items: readonly Placement[];
   look?: ModelLook;
   scale?: number | readonly [number, number, number];
   castShadow?: boolean;
+  solid?: boolean;
 }) {
   const k = typeof scale === "number" ? ([scale, scale, scale] as const) : scale;
   const scaled = items.map((it) => {
@@ -154,6 +173,7 @@ export function ModelMix({
           items={scaled.filter((_, i) => i % urls.length === m)}
           look={look}
           castShadow={castShadow}
+          solid={solid}
         />
       ))}
     </>

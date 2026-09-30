@@ -199,7 +199,8 @@ Each region gets a glade layout, interactables (with the content they reveal), a
   - Desktop: WASD or arrow keys, or click to walk. Drag or right-mouse to orbit the camera. E to interact. C to open the Codex. Shift to run.
   - Mobile: tap to walk, drag to look, tap an object to interact.
   - Gamepad: supported via the Gamepad API (cheap, and award juries notice it).
-- **Movement:** a kinematic character controller over a navmesh (recast-navigation, WASM) or Rapier colliders (`@react-three/rapier`). Recommendation: **navmesh for walking plus simple sphere triggers for interaction**. It's lighter than full physics, and click-to-walk pathfinding comes free.
+- **As built in V2.0:** a kinematic controller on the terrain heightfield with colliders generated automatically from the scene (see CLAUDE.md), which proved enough for the glades; a navmesh stays an option if click-to-walk needs real pathfinding around clutter.
+- **Originally proposed:** a kinematic character controller over a navmesh (recast-navigation, WASM) or Rapier colliders (`@react-three/rapier`). Recommendation: **navmesh for walking plus simple sphere triggers for interaction**. It's lighter than full physics, and click-to-walk pathfinding comes free.
 - **Camera:** a third-person spring arm (about 6 units back, shoulder offset, collision-aware so it never enters rocks). It is damped, leads slightly in the walking direction, and lowers when you're near objects. Focus shots on interaction blend in over 0.6 s with depth of field. Authored cinematics only for travel roads and signature moments.
 - **World reacts to you:** grass bends away from the character (pass its position to the grass shader), water ripples at your feet, fireflies scatter and return, crows lift off when you walk near the cairn, and candles flicker as you pass.
 
@@ -334,7 +335,7 @@ Each phase ends with a review, as in v1.
 
 | Phase | Goal | Output |
 |---|---|---|
-| **V2.0 Foundation** | The adventurer walks | Character converted and animated, controller with navmesh, spring-arm camera, input (keys, click, touch), a test glade |
+| **V2.0 Foundation** (done) | The adventurer walks | Character converted and animated, controller with navmesh, spring-arm camera, input (keys, click, touch), a test glade |
 | **V2.1 Interaction and Codex** | The loop works | `Interactable`, focus shots, the Codex UI (HTML book, map, progress), discovery persistence, audio engine with placeholder sounds |
 | **V2.2 Vertical slice: the Forest** | One region at award quality | Chests with animations, sculpted glade, stylized shader, grading, grass reacting to the character, sound. This is the proof. |
 | **V2.3 Roads** | Continuous world | Travel cinematics between glades, region streaming, waystones and fast travel |

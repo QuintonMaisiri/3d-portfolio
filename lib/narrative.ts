@@ -93,3 +93,31 @@ export function updateNarrative(progress: number, dt: number, reducedMotion: boo
   narrative.caption.text = text;
   narrative.caption.opacity = text && travel > 0 ? smoothstep(0.05, 0.25, travel) * (1 - smoothstep(0.55, 0.78, travel)) : 0;
 }
+
+/** How close (in regions) the player must be for a region's scene to play its arrival. */
+const EXPLORE_ARRIVE = 0.35;
+
+/**
+ * Explore mode: there are no panels, so each region's scene beats (orbs
+ * rising, tablets surfacing, trees lighting) play once, the first time the
+ * player walks into it, and stay played. The opening runs as in the journey.
+ * `position` is the player's journey position (see lib/player.ts).
+ */
+export function updateExploreNarrative(position: number, dt: number, reducedMotion: boolean) {
+  if (reducedMotion) {
+    narrative.intro = 1;
+    narrative.introTime = INTRO_SECONDS;
+  } else {
+    if (narrative.worldReady || narrative.waited >= MAX_WORLD_WAIT) narrative.introTime += dt;
+    else narrative.waited += dt;
+    narrative.intro = clamp01(narrative.introTime / INTRO_SECONDS);
+  }
+  narrative.panels.forEach((panel, i) => {
+    if (Math.abs(position - i) < EXPLORE_ARRIVE && (i > 0 || narrative.introTime >= HERO_DELAY)) {
+      panel.timeIn = reducedMotion ? 1 : Math.min(1, panel.timeIn + dt / REVEAL_SECONDS);
+    }
+    panel.reveal = panel.timeIn;
+    panel.leave = 1;
+  });
+  narrative.caption.opacity = 0;
+}

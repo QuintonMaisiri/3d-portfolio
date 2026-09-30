@@ -37,6 +37,7 @@
     "draco3dgltf": "^1.5.7",
     "eslint": "9.39.5",
     "eslint-config-next": "16.3.6",
+    "fbx2gltf": "0.9.7-p1",
     "meshoptimizer": "^1.1.1",
     "obj2gltf": "3.2.0",
     "r3f-perf": "7.2.3",

@@ -172,7 +172,8 @@ const orbProgramKey = () => "skill-orb-instance-emissive";
 /** Instanced skill orbs: faceted gems glowing in their group's colour. The region places and colours each instance. */
 export const SkillOrbs = forwardRef<InstancedMesh, { count: number }>(function SkillOrbs({ count }, ref) {
   return (
-    <instancedMesh ref={ref} args={[undefined, undefined, count]} frustumCulled={false}>
+    // Orbs move every frame, so they never count as obstacles.
+    <instancedMesh ref={ref} args={[undefined, undefined, count]} frustumCulled={false} userData={{ walkThrough: true }}>
       <icosahedronGeometry args={[0.3, 1]} />
       <meshLambertMaterial
         flatShading

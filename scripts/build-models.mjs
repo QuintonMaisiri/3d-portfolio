@@ -3,12 +3,13 @@
 //   npm run models
 //
 // Source packs are unzipped into assets-inbox/_work/<pack>/ (gitignored).
-// Sources may be glTF (the MegaKits) or OBJ + MTL (the older packs, converted
-// on the fly).
+// Sources may be glTF (the MegaKits), OBJ + MTL (the older packs) or FBX
+// (the animated character), the last two converted on the fly.
 // Each model is: stripped of normal maps (the flat low-poly style doesn't use
 // them), welded and simplified, its textures shrunk to WebP, pruned, and
 // Draco-compressed. Output goes to public/models/<region>/<name>.glb.
-import { mkdirSync, statSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { NodeIO } from "@gltf-transform/core";
@@ -16,6 +17,7 @@ import { ALL_EXTENSIONS, KHRDracoMeshCompression } from "@gltf-transform/extensi
 import { dedup, prune, simplify, textureCompress, weld } from "@gltf-transform/functions";
 import draco3d from "draco3dgltf";
 import obj2gltf from "obj2gltf";
+import fbx2gltf from "fbx2gltf";
 import { MeshoptSimplifier } from "meshoptimizer";
 import sharp from "sharp";
 
@@ -30,6 +32,10 @@ const out = join(root, "public", "models");
  * to real models.
  */
 const MODELS = [
+  // The adventurer (Ultimate Modular Ruins Pack, CC0): skinned and animated, so
+  // it skips welding and simplifying, which would break the skin.
+  { src: "character/Character_Animated.fbx", dest: "character/adventurer.glb", animated: true },
+
   // The Enchanted Forest: woodland, project trees, undergrowth.
   // Background woodland is instanced by the hundred, so it's simplified hard.
   ...[1, 2, 3, 4, 5].map((n) => ({ src: `nature/glTF/CommonTree_${n}.gltf`, dest: `forest/common-tree-${n}.glb`, ratio: 0.3, error: 0.04, texture: 512 })),
@@ -84,6 +90,17 @@ const MODELS = [
   })),
 ];
 
+/** Converts an FBX with the FBX2glTF binary into a temporary .glb and reads it. */
+async function readFbx(src) {
+  const dir = mkdtempSync(join(tmpdir(), "fbx-"));
+  try {
+    const glb = await fbx2gltf(src, join(dir, "model.glb"), ["--binary"]);
+    return await io.read(glb);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 function kebab(name) {
   return name.replace(/_/g, "-").replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
 }
@@ -101,12 +118,18 @@ for (const model of MODELS.filter((m) => !only || m.dest.includes(only))) {
   const dest = join(out, model.dest);
   const document = src.endsWith(".obj")
     ? await io.readBinary(await obj2gltf(src, { binary: true }))
-    : await io.read(src);
+    : src.endsWith(".fbx")
+      ? await readFbx(src)
+      : await io.read(src);
 
   // Normal maps add weight and fight the flat-shaded look.
   for (const material of document.getRoot().listMaterials()) material.setNormalTexture(null);
 
-  await document.transform(
+  if (model.animated) {
+    // FBX2glTF writes every clip twice ("Walk" and "CharacterArmature|Walk"); keep the short names.
+    for (const clip of document.getRoot().listAnimations()) if (clip.getName().includes("|")) clip.dispose();
+    await document.transform(dedup(), prune());
+  } else await document.transform(
     dedup(),
     weld(),
     simplify({ simplifier: MeshoptSimplifier, ratio: model.ratio, error: model.error ?? 0.004 }),

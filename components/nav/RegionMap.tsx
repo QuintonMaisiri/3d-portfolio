@@ -6,6 +6,8 @@ import { useCodex } from "@/lib/store";
 /** Compact map of all eight regions: shows where you are and jumps anywhere. */
 export function RegionMap() {
   const active = useCodex((s) => s.activeRegion);
+  const exploring = useCodex((s) => s.viewMode === "explore");
+  const travelTo = useCodex((s) => s.travelTo);
 
   return (
     <nav aria-label="Region map" className="fixed top-1/2 right-2 z-30 -translate-y-1/2 sm:right-4">
@@ -17,6 +19,15 @@ export function RegionMap() {
               <a
                 href={`#${region.id}`}
                 aria-current={current ? "location" : undefined}
+                // Exploring, the map is fast travel: the adventurer is taken to that region.
+                onClick={
+                  exploring
+                    ? (e) => {
+                        e.preventDefault();
+                        travelTo(region.id);
+                      }
+                    : undefined
+                }
                 className="group relative flex h-8 w-8 items-center justify-center rounded-full focus-visible:ring-2 focus-visible:ring-[#f3efe4] focus-visible:outline-none focus-visible:ring-inset"
               >
                 <span

@@ -8,7 +8,7 @@ import { narrative } from "@/lib/narrative";
 import { REGION_COUNT, regions } from "@/lib/regions";
 import { useCodex } from "@/lib/store";
 import { journey } from "@/lib/timeline";
-import { cameraLookAt } from "./CameraRig";
+import { cameraLookAt } from "@/lib/cameraState";
 import { skyColors } from "./SkyDome";
 import { FLASH_DECAY, weather } from "@/lib/weather";
 

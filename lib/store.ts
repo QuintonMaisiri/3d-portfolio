@@ -2,7 +2,15 @@ import { create } from "zustand";
 import type { RegionId } from "./types";
 import type { Quality } from "./webgl";
 
-export type ViewMode = "journey" | "page";
+/**
+ * "explore": v2, walk the world as the adventurer (the default world view).
+ * "journey": v1's scroll-driven film, kept reachable with ?view=journey while v2 is built.
+ * "page": everything as a conventional one-page portfolio.
+ */
+export type ViewMode = "explore" | "journey" | "page";
+
+export const isViewMode = (value: string | null): value is ViewMode =>
+  value === "explore" || value === "journey" || value === "page";
 export type WebGLStatus = "unknown" | "supported" | "unsupported";
 
 export const VIEW_STORAGE_KEY = "codex:view";
@@ -28,6 +36,8 @@ interface CodexState {
   hoveredQuoteId: string | null;
   /** performance.now() when the contact form's raven was sent; the Campfire flies it. */
   ravenSentAt: number | null;
+  /** Explore mode: a region to fast-travel to, consumed by the Player. */
+  travelRequest: RegionId | null;
 
   setRawProgress: (p: number) => void;
   setSmoothProgress: (p: number) => void;
@@ -41,12 +51,14 @@ interface CodexState {
   hoverProject: (id: string | null) => void;
   hoverQuote: (id: string | null) => void;
   sendRaven: () => void;
+  travelTo: (id: RegionId | null) => void;
 }
 
 export const useCodex = create<CodexState>()((set, get) => ({
   rawProgress: 0,
   smoothProgress: 0,
   activeRegion: "highlands",
+  // The server renders the journey (every section's HTML, indexable); the client picks the real view on mount.
   viewMode: "journey",
   webgl: "unknown",
   quality: "high",
@@ -56,6 +68,7 @@ export const useCodex = create<CodexState>()((set, get) => ({
   hoveredProjectId: null,
   hoveredQuoteId: null,
   ravenSentAt: null,
+  travelRequest: null,
 
   setRawProgress: (rawProgress) => set({ rawProgress }),
   setSmoothProgress: (smoothProgress) => set({ smoothProgress }),
@@ -85,6 +98,7 @@ export const useCodex = create<CodexState>()((set, get) => ({
     if (get().hoveredProjectId !== hoveredProjectId) set({ hoveredProjectId });
   },
   sendRaven: () => set({ ravenSentAt: performance.now() }),
+  travelTo: (travelRequest) => set({ travelRequest }),
   hoverQuote: (hoveredQuoteId) => {
     if (get().hoveredQuoteId !== hoveredQuoteId) set({ hoveredQuoteId });
   },
