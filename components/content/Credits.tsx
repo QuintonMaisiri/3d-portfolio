@@ -13,7 +13,7 @@ export function Credits() {
             <a href={c.url} className="underline underline-offset-2 hover:text-ink">
               {c.title}
             </a>{" "}
-            by {c.author}, {c.license === "CC0" ? "CC0" : <a href="https://creativecommons.org/licenses/by/4.0/" className="underline underline-offset-2 hover:text-ink">CC BY 4.0</a>}
+            by {c.author}, {c.license === "CC0" ? "CC0" : c.license === "Pixabay" ? "Pixabay Content License" : <a href="https://creativecommons.org/licenses/by/4.0/" className="underline underline-offset-2 hover:text-ink">CC BY 4.0</a>}
           </li>
         ))}
       </ul>

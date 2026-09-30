@@ -19,7 +19,7 @@ import { DRACO_PATH } from "@/lib/assets";
 import { orbit } from "@/lib/cameraState";
 import { resolveCircle } from "@/lib/colliders";
 import { interaction } from "@/lib/interactables";
-import { input, moveAxes } from "@/lib/input";
+import { input, moveAxes, pollGamepad } from "@/lib/input";
 import { damp } from "@/lib/journey";
 import { narration } from "@/content/narration";
 import { clampToValley, PLAYER, player, spawnPoint } from "@/lib/player";
@@ -116,6 +116,8 @@ export function PlayerController() {
     // Capped so a long stall (tab switch, shader compile) can't fling the adventurer through a prop.
     const dt = Math.min(delta, 0.1);
     const store = useCodex.getState();
+    // A gamepad, if one is connected (sticks feed moveAxes and the look input).
+    if (pollGamepad().codex && !store.codexOpen) store.openCodex();
 
     // Fast travel (region map, Codex, waystones, entering the world): fade to black, move, fade back in.
     const now = performance.now();

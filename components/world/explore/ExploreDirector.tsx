@@ -12,6 +12,7 @@ import { isRegionId, regions } from "@/lib/regions";
 import { useCodex } from "@/lib/store";
 import { journey } from "@/lib/timeline";
 import { weather } from "@/lib/weather";
+import { useMusic } from "@/lib/music";
 import { updateStreaming } from "@/lib/streaming";
 import { gates, nearestRoad, roadPoint, travel } from "@/lib/road";
 
@@ -52,7 +53,7 @@ export function ExploreDirector() {
     if (gl.extensions.has("KHR_parallel_shader_compile")) void gl.compileAsync(scene, camera);
     else gl.compile(scene, camera);
     if (process.env.NODE_ENV === "development")
-      Object.assign(window, { __codex: { journey, camera, narrative, store: useCodex, weather, scene, player, input, colliderCount, collidersNear, colliderAt, getInteractable, interaction, discoveries: useDiscoveries, road: { travel, gates, roadPoint, nearestRoad } } });
+      Object.assign(window, { __codex: { journey, camera, narrative, store: useCodex, weather, scene, player, input, colliderCount, collidersNear, colliderAt, getInteractable, interaction, discoveries: useDiscoveries, road: { travel, gates, roadPoint, nearestRoad }, music: useMusic } });
   }, [gl, scene, camera]);
 
   useFrame((_, delta) => {

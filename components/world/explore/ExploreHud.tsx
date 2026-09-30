@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { codexPages } from "@/content/codex";
 import { useDiscoveries } from "@/lib/discoveries";
 import { player } from "@/lib/player";
+import { MusicControl } from "./MusicControl";
 import { regionById } from "@/lib/regions";
 import { useCodex } from "@/lib/store";
 import type { RegionId } from "@/lib/types";
@@ -140,11 +141,13 @@ export function ExploreHud() {
         </button>
       ) : null}
 
+      <MusicControl className={`${pill} absolute bottom-6 left-4 flex h-10 w-10 items-center justify-center hover:bg-[#121318] sm:left-8`} />
+
       <button
         type="button"
         onClick={() => useCodex.getState().openCodex()}
         aria-label={`Open the Codex: ${found} of ${codexPages.length} pages written${unread ? `, ${unread} new` : ""}`}
-        className={`${pill} absolute bottom-6 left-4 flex items-center gap-2 px-4 py-2.5 text-sm font-medium hover:bg-[#121318] sm:left-8`}
+        className={`${pill} absolute bottom-6 left-16 flex items-center gap-2 px-4 py-2.5 text-sm font-medium hover:bg-[#121318] sm:left-20`}
       >
         <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6">
           <path d="M3 4.5c2.5-1 5-1 7 .5v11c-2-1.5-4.5-1.5-7-.5v-11ZM17 4.5c-2.5-1-5-1-7 .5v11c2-1.5 4.5-1.5 7-.5v-11Z" strokeLinejoin="round" />

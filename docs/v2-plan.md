@@ -339,8 +339,8 @@ Each phase ends with a review, as in v1.
 | **V2.1 Interaction and Codex** (done) | The loop works | `Interactable`, focus shots, the Codex UI (HTML book, map, progress), discovery persistence, audio engine with placeholder sounds |
 | **V2.2 Vertical slice: the Forest** (done, approved) | One region at award quality | Chests with animations, sculpted glade, stylized shader, grading, grass reacting to the character, sound. This is the proof. |
 | **V2.3 Roads** (done) | Continuous world | Travel cinematics between glades, region streaming, waystones and fast travel |
-| **V2.4 to V2.10** | Remaining regions, in journey order | Each region's interactables, signature moment and threshold |
-| **V2.11 Polish** | Awards pass | Loading story, music, gamepad, performance budget, accessibility audit, mobile tuning, credits |
+| **V2.4 to V2.10** (done) | Remaining regions, in journey order | Each region's interactables, signature moment and threshold |
+| **V2.11 Polish** (done; music added at Quinton's request) | Awards pass | Loading story, music, gamepad, performance budget, accessibility audit, mobile tuning, credits |
 
 **The vertical slice (V2.2) is the key checkpoint.** If walking through the Forest and opening chests doesn't feel great, we adjust before building the other seven.
 
@@ -380,5 +380,5 @@ Each phase ends with a review, as in v1.
 1. Movement model B: **approved**.
 2. Vertical slice: **the Forest** (left to Claude).
 3. Discoveries persist between visits: **yes**.
-4. Sound: **muted for now**.
+4. Sound: **muted at first**; later Quinton asked for the ambient track to play while exploring (done in V2.11).
 5. Content: sourcing guide in section 10.1, assets in section 10.2. The Peaks bugs and the project write-ups unlock the two most distinctive regions, so those are the most valuable to gather first.

@@ -115,9 +115,50 @@ export function attachInput(canvas: HTMLElement) {
 }
 
 /** Movement intent from the keyboard: x = strafe (right +), y = forward (+), each -1..1. */
+/** Gamepad stick state, refreshed by pollGamepad() each frame. */
+const pad = { x: 0, y: 0, run: false, buttons: [] as boolean[] };
+/** Stick travel ignored around the centre (worn sticks drift). */
+const DEADZONE = 0.18;
+/** Right stick look speed, in pixels of drag per frame at full tilt (matches mouse-drag feel). */
+const PAD_LOOK = 14;
+const dead = (v: number) => (Math.abs(v) < DEADZONE ? 0 : (v - Math.sign(v) * DEADZONE) / (1 - DEADZONE));
+
+/**
+ * Reads the first connected gamepad (standard mapping): left stick walks,
+ * right stick looks, A uses, Y or Start opens the Codex, RT or LB runs.
+ * Returns true when the Codex button was just pressed. Call once per frame.
+ */
+export function pollGamepad(): { codex: boolean } {
+  const gp = typeof navigator !== "undefined" && navigator.getGamepads ? [...navigator.getGamepads()].find((g) => g?.connected) : null;
+  if (!gp) {
+    pad.x = pad.y = 0;
+    pad.run = false;
+    return { codex: false };
+  }
+  const pressed = gp.buttons.map((b) => b.pressed);
+  const edge = (i: number) => !!pressed[i] && !pad.buttons[i];
+  pad.x = dead(gp.axes[0] ?? 0);
+  pad.y = -dead(gp.axes[1] ?? 0);
+  pad.run = !!pressed[7] || !!pressed[4];
+  const lx = dead(gp.axes[2] ?? 0);
+  const ly = dead(gp.axes[3] ?? 0);
+  if (lx || ly) {
+    input.lookX += lx * PAD_LOOK;
+    input.lookY += ly * PAD_LOOK;
+    input.lastLook = performance.now();
+  }
+  if (edge(0)) input.interact = true;
+  const codex = edge(3) || edge(9);
+  pad.buttons = pressed;
+  return { codex };
+}
+
+/** Movement intent from the keyboard or gamepad: x = strafe (right +), y = forward (+), each -1..1. */
 export function moveAxes() {
   const k = input.keys;
-  const x = (k.has("KeyD") || k.has("ArrowRight") ? 1 : 0) - (k.has("KeyA") || k.has("ArrowLeft") ? 1 : 0);
-  const y = (k.has("KeyW") || k.has("ArrowUp") ? 1 : 0) - (k.has("KeyS") || k.has("ArrowDown") ? 1 : 0);
-  return { x, y, run: k.has("ShiftLeft") || k.has("ShiftRight") };
+  const kx = (k.has("KeyD") || k.has("ArrowRight") ? 1 : 0) - (k.has("KeyA") || k.has("ArrowLeft") ? 1 : 0);
+  const ky = (k.has("KeyW") || k.has("ArrowUp") ? 1 : 0) - (k.has("KeyS") || k.has("ArrowDown") ? 1 : 0);
+  const x = kx || pad.x;
+  const y = ky || pad.y;
+  return { x, y, run: k.has("ShiftLeft") || k.has("ShiftRight") || pad.run };
 }

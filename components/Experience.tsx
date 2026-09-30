@@ -10,6 +10,7 @@ import { ScrollDriver } from "@/components/ScrollDriver";
 import { WorldLayer } from "@/components/world/WorldLayer";
 import { Codex } from "@/components/codex/Codex";
 import { ExploreHud } from "@/components/world/explore/ExploreHud";
+import { LoadingCover } from "@/components/world/explore/LoadingCover";
 import { isViewMode, useCodex, VIEW_STORAGE_KEY, type ViewMode } from "@/lib/store";
 import { isRegionId } from "@/lib/regions";
 import { detectGpu } from "@/lib/webgl";
@@ -80,6 +81,7 @@ export function Experience() {
           <WorldLayer enabled={webgl === "supported"} mode="explore" />
           <ExploreHud />
           <Codex />
+          <LoadingCover />
         </>
       ) : viewMode === "journey" ? (
         <>

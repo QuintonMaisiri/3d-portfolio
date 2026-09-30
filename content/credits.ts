@@ -7,7 +7,7 @@ export interface Credit {
   title: string;
   author: string;
   url: string;
-  license: "CC-BY-4.0" | "CC0";
+  license: "CC-BY-4.0" | "CC0" | "Pixabay";
 }
 
 export const credits: Credit[] = [
@@ -16,5 +16,6 @@ export const credits: Credit[] = [
   { title: "Raven", author: "David Clowes", url: "https://sketchfab.com/3d-models/raven-60155d61e6904e87b899a96c4c106792", license: "CC-BY-4.0" },
   { title: "Nature, props, village, ruins, dungeon and survival packs", author: "Quaternius", url: "https://quaternius.com", license: "CC0" },
   { title: "Resource Bits", author: "Kay Lousberg", url: "https://www.kaylousberg.com", license: "CC0" },
+  { title: "Ambient music", author: "leberch", url: "https://pixabay.com", license: "Pixabay" },
   { title: "Paper, leather and carpet textures", author: "ambientCG", url: "https://ambientcg.com", license: "CC0" },
 ];
