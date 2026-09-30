@@ -8,7 +8,7 @@
 // Each model is: stripped of normal maps (the flat low-poly style doesn't use
 // them), welded and simplified, its textures shrunk to WebP, pruned, and
 // Draco-compressed. Output goes to public/models/<region>/<name>.glb.
-import { mkdirSync, mkdtempSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -34,7 +34,8 @@ const out = join(root, "public", "models");
 const MODELS = [
   // The adventurer (Ultimate Modular Ruins Pack, CC0): skinned and animated, so
   // it skips welding and simplifying, which would break the skin.
-  { src: "character/Character_Animated.fbx", dest: "character/adventurer.glb", animated: true },
+  // `extraClips`: retargeted clips baked in (the Mixamo sit, from scripts/retarget-sit.mjs), if present.
+  { src: "character/Character_Animated.fbx", dest: "character/adventurer.glb", animated: true, extraClips: ["character/sit-clip.json"] },
 
   // Creatures (Sketchfab, CC-BY-4.0: credited on the site, see content/credits.ts).
   // `clips` keeps only the named animations, renamed short: { newName: sourceName }.
@@ -111,6 +112,7 @@ const MODELS = [
     "Anvil", "Anvil_Log", "Workbench", "WeaponStand", "Whetstone", "Barrel", "Crate_Metal", "Chain_Coil", "Torch_Metal",
     "Bookcase_2", "Book_Stack_1", "Book_Stack_2", "BookStand", "Candle_1", "Candle_2", "CandleStick_Stand",
     "CandleStick_Triple", "Scroll_1", "Bench", "Crate_Wooden", "Bag", "Pot_1", "Cauldron", "Shelf_Arch",
+    "Key_Metal", "Cabinet", "Chandelier",
   ].map((name) => ({ src: `props/Exports/glTF/${name}.gltf`, dest: `props/${kebab(name)}.glb`, ratio: 0.9, texture: 512 })),
 
   // Medieval Village MegaKit (CC0).
@@ -136,6 +138,31 @@ const MODELS = [
     texture: 512,
   })),
 ];
+
+/**
+ * Adds a clip written by a retarget script ({ name, tracks: [{ bone, times, values }] },
+ * rotation tracks, bones by three's sanitised node name) as a glTF animation.
+ */
+function addClip(document, file) {
+  if (!existsSync(file)) {
+    console.log(`  (no ${file}: skipped)`);
+    return;
+  }
+  const { name, tracks } = JSON.parse(readFileSync(file, "utf8"));
+  const root = document.getRoot();
+  const buffer = root.listBuffers()[0];
+  const sanitise = (n) => n.replace(/\s/g, "_").replace(/[[\].:/]/g, "");
+  const animation = document.createAnimation(name);
+  for (const track of tracks) {
+    const node = root.listNodes().find((n) => sanitise(n.getName()) === track.bone);
+    if (!node) continue;
+    const input = document.createAccessor().setType("SCALAR").setArray(new Float32Array(track.times)).setBuffer(buffer);
+    const output = document.createAccessor().setType("VEC4").setArray(new Float32Array(track.values)).setBuffer(buffer);
+    const sampler = document.createAnimationSampler().setInput(input).setOutput(output).setInterpolation("LINEAR");
+    animation.addSampler(sampler).addChannel(document.createAnimationChannel().setTargetNode(node).setTargetPath("rotation").setSampler(sampler));
+  }
+  console.log(`  + ${name}: ${animation.listChannels().length} channels`);
+}
 
 /** Removes an animation with its channels and samplers (disposing the clip alone leaves its keyframes behind). */
 function disposeClip(clip) {
@@ -206,6 +233,7 @@ for (const model of MODELS.filter((m) => !only || m.dest.includes(only))) {
         else disposeClip(clip);
       }
     }
+    for (const extra of model.extraClips ?? []) addClip(document, join(work, extra));
     adoptSpecularGlossinessDiffuse(document);
     await document.transform(
       dedup(),

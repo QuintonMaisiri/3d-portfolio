@@ -12,7 +12,7 @@ import type { RegionId } from "@/lib/types";
  * world. Each page shows existing content (from the other content files, so
  * nothing is written twice) once it has been found.
  */
-export type CodexPageKind = "hero" | "about" | "skill" | "project" | "problem" | "milestone" | "quote" | "contact";
+export type CodexPageKind = "hero" | "about" | "drive" | "skill" | "project" | "problem" | "milestone" | "quote" | "contact";
 
 export interface CodexPage {
   /** Stable id, saved in the visitor's browser: don't rename lightly. */
@@ -50,9 +50,18 @@ export const codexPages: CodexPage[] = [
     region: "archive",
     item: 0,
     title: "About",
-    hint: "Look to the scroll above the lectern.",
-    // The scroll's ink: one beat per paragraph (1..4).
-    beats: [1, 2, 3, 4],
+    hint: "Look to the scroll above the lectern, and find the key to the locked cabinet.",
+    // The scroll's ink: one beat per paragraph; the last line is what drives you, in the cabinet.
+    beats: [1, 2, 3],
+  },
+  {
+    id: "drive",
+    kind: "drive",
+    region: "archive",
+    item: 0,
+    title: "What drives me",
+    hint: "Look to the scroll above the lectern, and find the key to the locked cabinet.",
+    beats: [4],
   },
   ...skillGroups.map<CodexPage>((group, g) => ({
     id: `skill:${group.id}`,

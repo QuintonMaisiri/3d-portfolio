@@ -10,6 +10,7 @@ import { DRACO_PATH } from "@/lib/assets";
 /** What's on the bench: url, a label, and the clip to play (if animated). */
 const MODELS: { url: string; label: string; clip?: string }[] = [
   { url: "/models/character/adventurer.glb", label: "adventurer", clip: "Walk" },
+  { url: "/models/character/adventurer.glb", label: "adventurer sitting", clip: "Sit" },
   { url: "/models/creatures/ox-beetle.glb", label: "ox beetle", clip: "Walk" },
   { url: "/models/creatures/dung-beetle.glb", label: "dung beetle", clip: "Walk" },
   { url: "/models/creatures/raven.glb", label: "raven", clip: "Scene" },
@@ -71,9 +72,12 @@ function Specimen({ url, label, clip, position }: (typeof MODELS)[number] & { po
 }
 
 export function ModelLab() {
+  // ?only=<label> shows one specimen up close, from the side (e.g. ?only=adventurer%20sitting).
+  const only = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("only");
+  const shown = only ? MODELS.filter((m) => m.label === only) : MODELS;
   return (
     <div style={{ position: "fixed", inset: 0, background: "#1c3526" }}>
-      <Canvas flat shadows camera={{ position: [4, 9, 12], fov: 50 }}>
+      <Canvas flat shadows camera={{ position: only ? [-1.5, 1.6, 0.4] : [4, 9, 12], fov: 50 }}>
         <color attach="background" args={["#2c4a3a"]} />
         <hemisphereLight args={["#bfe3d0", "#1c2a22", 1.1]} />
         <directionalLight position={[8, 12, 6]} intensity={1.6} color="#fff1d6" />
@@ -81,12 +85,12 @@ export function ModelLab() {
           <planeGeometry args={[40, 30]} />
           <meshLambertMaterial color="#2f5a40" />
         </mesh>
-        {MODELS.map((m, i) => (
-          <Suspense key={m.url} fallback={null}>
+        {shown.map((m, i) => (
+          <Suspense key={m.label} fallback={null}>
             <Specimen {...m} position={[(i % COLUMNS) * SPACING - 4, 0, -Math.floor(i / COLUMNS) * SPACING]} />
           </Suspense>
         ))}
-        <OrbitControls target={[4, 1, -4]} />
+        <OrbitControls target={only ? [-4, 1, 0] : [4, 1, -4]} />
       </Canvas>
     </div>
   );

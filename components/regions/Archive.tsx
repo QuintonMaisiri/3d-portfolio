@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useRef } from "react";
-import { Vector3, type Group, type Points } from "three";
+import { Suspense, useMemo, useRef } from "react";
+import { Vector3, type Group, type Points, type PointsMaterial } from "three";
 import { cameraPath, clearOfCamera, waypointU } from "@/lib/cameraPath";
 import { easeOutCubic, lerp } from "@/lib/journey";
 import { narrative, sceneBeat } from "@/lib/narrative";
@@ -24,6 +24,11 @@ import {
   type ScrollHandle,
 } from "./models/archive";
 import { Interactable } from "@/components/world/explore/Interaction";
+import { useDiscoveries } from "@/lib/discoveries";
+import { useCodex } from "@/lib/store";
+import { MODELS } from "@/lib/models";
+import { Model } from "@/components/world/ModelScatter";
+import { GlowDot } from "@/components/world/GlowDot";
 import { ambientMotion, groundAt, RegionSlot, scatter, useRegionFrame } from "./shared";
 
 const region = regionById.archive;
@@ -40,6 +45,13 @@ const STEP_SPACING = 1.25;
 const ARCH_AT = 0.86;
 /** Clearance between the camera and the underside of the arch. */
 const ARCH_CLEARANCE = 1.6;
+
+/** The puzzle: a key by a candle stand near the entrance opens the cabinet by the shelves (what drives me). */
+const KEY = { x: -8, z: 3 };
+const CABINET = { x: 6.7, z: -5.3 };
+/** The cabinet faces the dais. */
+const CABINET_FACING = Math.atan2(-CABINET.x, -CABINET.z);
+const ARCHIVE_KEY = "archive-key";
 
 /** Clear of the camera's route (region-local x/z), so it never flies through a prop. */
 const offRoute = (x: number, z: number, radius: number) =>
@@ -80,6 +92,9 @@ function archway() {
 }
 
 export function Archive() {
+  const hasKey = useDiscoveries((s) => s.items.includes(ARCHIVE_KEY));
+  const driveFound = useDiscoveries((s) => s.found.includes("drive"));
+  const cabinetGlow = useRef<PointsMaterial>(null);
   const shelves = useMemo(
     () => [
       ...arc(11, 10, -1.5, 1.5).map(({ x, z, facing }) => ({
@@ -141,6 +156,8 @@ export function Archive() {
       ink.current[i] = sceneBeat(region.index, i + 1);
     });
     scroll.current?.update(easeOutCubic(panel.reveal), ink.current);
+    // The cabinet, unlocked, spills light as its page (the scroll's last line) is written.
+    if (cabinetGlow.current) cabinetGlow.current.opacity = 0.85 * sceneBeat(region.index, 4);
 
     if (!ambientMotion()) return;
     const t = clock.elapsedTime;
@@ -159,6 +176,52 @@ export function Archive() {
       <Bookshelves items={shelves} />
       <Pillars items={pillars} />
       <Lectern position={[0, floorY, 0]} />
+      <Suspense fallback={null}>
+        <Model url={MODELS.props.chandelier} scale={2.2} position={[0, floorY + 9, 2.5]} />
+        <Model url={MODELS.props.candleStand} scale={1.1} position={[KEY.x - 0.8, ground(KEY.x - 0.8, KEY.z + 0.7), KEY.z + 0.7]} />
+        <Model
+          url={MODELS.props.cabinet}
+          scale={1.6}
+          position={[CABINET.x, ground(CABINET.x, CABINET.z), CABINET.z]}
+          rotation={[0, CABINET_FACING, 0]}
+        />
+        {hasKey ? null : (
+          <Model url={MODELS.props.key} scale={4} position={[KEY.x, ground(KEY.x, KEY.z) + 0.03, KEY.z]} rotation={[0, 0.6, 0]} solid={false} />
+        )}
+      </Suspense>
+      <GlowDot
+        materialRef={cabinetGlow}
+        color="#ffd79a"
+        size={3}
+        position={[CABINET.x + Math.sin(CABINET_FACING) * 0.4, ground(CABINET.x, CABINET.z) + 1.1, CABINET.z + Math.cos(CABINET_FACING) * 0.4]}
+      />
+      {hasKey ? null : (
+        <Interactable
+          id="archive:key"
+          region={region}
+          position={[KEY.x, ground(KEY.x, KEY.z), KEY.z]}
+          pages={[]}
+          prompt="Pick up the key"
+          action="pickup"
+          radius={2}
+          markerHeight={0.9}
+          pending={() => true}
+          onUse={() => {
+            useDiscoveries.getState().take(ARCHIVE_KEY);
+            useCodex.getState().showNote("You found a key. It must open something in the Archive.");
+          }}
+        />
+      )}
+      <Interactable
+        id="archive:cabinet"
+        region={region}
+        position={[CABINET.x + Math.sin(CABINET_FACING) * 1.3, ground(CABINET.x, CABINET.z), CABINET.z + Math.cos(CABINET_FACING) * 1.3]}
+        pages={["drive"]}
+        prompt={driveFound ? "Read what drives me" : hasKey ? "Unlock the cabinet" : "Try the cabinet"}
+        locked={hasKey ? undefined : "It's locked. The key must be somewhere in the Archive."}
+        radius={2.2}
+        markerHeight={1.9}
+      />
       <Interactable id="archive:scroll" region={region} position={[0, floorY, 0.6]} pages={["about"]} prompt="Read the scroll" markerHeight={2.4} />
       <BookStack position={[1.9, floorY, 0.9]} />
       <HangingScroll ref={scroll} length={SCROLL_LENGTH} position={[0, floorY + SCROLL_TOP, -2]} />

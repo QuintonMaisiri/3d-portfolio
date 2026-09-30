@@ -43,6 +43,10 @@ const SPARK_COUNT = 50;
 const CAMP_GRASS = [-22, 24, -26, 14] as const;
 const awayFromFire = (x: number, z: number) => Math.hypot(x - FIRE.x, z - FIRE.z) > 1.9;
 const SPARK_HEIGHT = 4;
+/** The bench the adventurer sits on to write (the first log bench, west of the fire). */
+const BENCH = { x: FIRE.x - 2.4, z: FIRE.z - 1.2 };
+/** The sit clip keeps the hips at standing height; this lowers the body onto the bench. */
+const SEAT_DROP = 0.42;
 
 /** Camp gear around the tent, behind the fire and clear of the raven's perch. */
 const GEAR: readonly (Omit<CampProp, "position"> & { x: number; z: number })[] = [
@@ -160,6 +164,8 @@ export function Campfire() {
         position={[FIRE.x, ground(FIRE.x, FIRE.z), FIRE.z + 1.9]}
         pages={["contact"]}
         prompt="Sit by the fire and write a letter"
+        action="sit"
+        seat={{ x: BENCH.x, z: BENCH.z, facing: Math.atan2(FIRE.x - BENCH.x, FIRE.z - BENCH.z), drop: SEAT_DROP }}
         markerHeight={1.5}
         color={region.palette.accent}
       />

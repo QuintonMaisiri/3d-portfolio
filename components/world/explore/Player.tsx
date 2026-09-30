@@ -154,6 +154,23 @@ export function PlayerController() {
       }
     }
 
+    // Seated: stay on the seat until the visitor moves or taps somewhere.
+    if (player.seated) {
+      const axes = moveAxes();
+      if (axes.x || axes.y || player.target) player.seated = null;
+      else {
+        const seat = player.seated;
+        player.position.x = damp(player.position.x, seat.position.x, 8, dt);
+        player.position.z = damp(player.position.z, seat.position.z, 8, dt);
+        player.position.y = seat.position.y;
+        player.heading += angleTo(player.heading, seat.facing) * (1 - Math.exp(-8 * dt));
+        player.velocity.set(0, 0, 0);
+        player.speed = 0;
+        playerPush.value.copy(player.position);
+        return;
+      }
+    }
+
     // Travel scenes: walking out of a region through its road gate carries the
     // adventurer on along the road to the next (or back to the previous).
     const onRoad = nearestRoad(player.position.x, player.position.z, travel.last);
@@ -247,12 +264,14 @@ export function Player() {
   const { scene, animations } = useGLTF(URL, DRACO_PATH);
   const root = useRef<Group>(null);
   const { actions, mixer } = useAnimations(animations, root);
-  const current = useRef<Clip | "PickUp" | null>(null);
+  const current = useRef<Clip | "PickUp" | "Punch" | "Sit" | null>(null);
+  // How far the body is lowered (eases down onto a seat and back up).
+  const sink = useRef(0);
 
   // One-off actions return to idle when their clip ends.
   useEffect(() => {
     const done = () => {
-      if (current.current === "PickUp") {
+      if (current.current === "PickUp" || current.current === "Punch") {
         player.action = null;
         current.current = null;
       }
@@ -278,21 +297,27 @@ export function Player() {
   }, [scene]);
   useEffect(() => () => materials.forEach((m) => m.dispose()), [materials]);
 
-  const play = (clip: Clip | "PickUp") => {
+  const play = (clip: Clip | "PickUp" | "Punch" | "Sit") => {
     if (current.current === clip) return;
     const next = actions[clip] as AnimationAction | undefined;
     if (!next) return;
-    if (clip === "PickUp") next.setLoop(LoopOnce, 1);
+    if (clip === "PickUp" || clip === "Punch") next.setLoop(LoopOnce, 1);
     next.reset().fadeIn(FADE).play();
     if (current.current) actions[current.current]?.fadeOut(FADE);
     current.current = clip;
   };
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     const body = root.current;
+    sink.current = damp(sink.current, player.seated ? player.seated.drop : 0, 6, Math.min(delta, 0.1));
     if (body) {
       body.position.copy(player.position);
+      body.position.y -= sink.current;
       body.rotation.y = player.heading;
+    }
+    if (player.seated) {
+      play("Sit");
+      return;
     }
 
     // A one-off action, else idle, walk or run with the clip's pace matched to the ground speed.

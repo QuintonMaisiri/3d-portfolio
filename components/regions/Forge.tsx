@@ -266,6 +266,7 @@ export function Forge() {
           position={[p.x, ground(p.x, p.z), p.z]}
           pages={[`skill:${p.id}`]}
           prompt={`Kindle ${skillGroups[g]!.name}`}
+          action="strike"
           radius={2}
           markerHeight={p.height + 0.6}
           color={groupColor(g)}

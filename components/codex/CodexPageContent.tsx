@@ -6,7 +6,7 @@ import { skillGroups } from "@/content/skills";
 import { testimonials } from "@/content/testimonials";
 import { regionById } from "@/lib/regions";
 import { ProjectDetail } from "@/components/content/ProjectDetail";
-import { AboutContent } from "@/components/content/sections/AboutContent";
+import { about } from "@/content/about";
 import { ContactContent } from "@/components/content/sections/ContactContent";
 import { HeroContent } from "@/components/content/sections/HeroContent";
 import { Copy, Eyebrow } from "@/components/content/ui";
@@ -30,7 +30,35 @@ export function CodexPageContent({ page }: { page: CodexPage }) {
     case "hero":
       return <HeroContent region={region} variant="page" />;
     case "about":
-      return <AboutContent region={region} variant="page" />;
+      return (
+        <article aria-labelledby={titleId}>
+          {heading("About")}
+          <div className="mt-4 space-y-4 text-ink">
+            {about.paragraphs.map((p) => (
+              <p key={p}>
+                <Copy text={p} />
+              </p>
+            ))}
+          </div>
+          <dl className="mt-6 grid gap-x-6 gap-y-2 border-t border-line pt-5 text-sm sm:grid-cols-[auto_1fr]">
+            {about.facts.map((fact) => (
+              <div key={fact.label} className="contents">
+                <dt className="font-semibold text-muted">{fact.label}</dt>
+                <dd className="mb-2 text-ink sm:mb-0">{fact.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </article>
+      );
+    case "drive":
+      return (
+        <article aria-labelledby={titleId}>
+          {heading("What drives me")}
+          <p className="mt-4 font-display text-xl text-ink">
+            <Copy text={about.drive} />
+          </p>
+        </article>
+      );
     case "contact":
       return <ContactContent region={region} variant="page" />;
     case "project": {

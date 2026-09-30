@@ -12,6 +12,9 @@ export function AboutContent({ region, variant }: SectionProps) {
             <Copy text={p} />
           </p>
         ))}
+        <p data-beat>
+          <Copy text={about.drive} />
+        </p>
       </div>
       {journey ? (
         // Journey: two columns, label over value, so the panel fits a laptop screen.

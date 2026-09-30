@@ -17,11 +17,12 @@ import {
   type InteractAction,
 } from "@/lib/interactables";
 import { player } from "@/lib/player";
+import { floorAt } from "@/lib/surfaces";
 import { useCodex } from "@/lib/store";
 import type { RegionConfig, Vec3 } from "@/lib/types";
 
 /** Seconds the adventurer's action plays before the thing is used. */
-const ACTION_SECONDS: Record<InteractAction, number> = { pickup: 1, look: 0.45 };
+const ACTION_SECONDS: Record<InteractAction, number> = { pickup: 1, look: 0.45, strike: 0.6, sit: 0.9 };
 /**
  * After a new discovery, the world reacts (a chest opens and its scroll
  * rises, orbs lift, a tablet surfaces) for this long before the Codex opens
@@ -39,7 +40,9 @@ function start(def: InteractableDef) {
   interaction.shot = def.position;
   interaction.pending = null;
   player.target = null;
-  player.action = def.action === "pickup" ? "PickUp" : null;
+  player.action = def.action === "pickup" ? "PickUp" : def.action === "strike" ? "Punch" : null;
+  // Sitting: take the seat now (the body eases down into it).
+  if (def.action === "sit" && def.seat) player.seated = def.seat;
   // No prompt while it's in use; it returns (with its new wording) once the reveal is over.
   useCodex.getState().setPrompt(null);
 }
@@ -132,6 +135,9 @@ export function Interactable({
   color = "#fff1c4",
   onUse,
   step,
+  locked,
+  pending: pendingOverride,
+  seat,
 }: {
   id: string;
   region: RegionConfig;
@@ -148,6 +154,12 @@ export function Interactable({
   onUse?: () => void;
   /** Found by stepping within this radius (no E); the note names what was written. */
   step?: { radius: number; note: string };
+  /** While set, using it writes nothing and shows this note instead ("It's locked..."). */
+  locked?: string;
+  /** Whether it still has something to give (its marker pulses); defaults to "holds an unwritten page". */
+  pending?: () => boolean;
+  /** For action "sit": region-local seat position (on the ground), the way to face, and how far to lower the body. */
+  seat?: { x: number; z: number; facing: number; drop: number };
 }) {
   const exploring = useCodex((s) => s.viewMode === "explore");
   const material = useRef<PointsMaterial>(null);
@@ -163,9 +175,10 @@ export function Interactable({
   const pageKey = pages.join("|");
   const stepRadius = step?.radius;
   const stepNote = step?.note;
+  const [seatX, seatZ, seatFacing, seatDrop] = seat ? [seat.x, seat.z, seat.facing, seat.drop] : [];
   useEffect(() => {
     if (!exploring) return;
-    const list = pageKey.split("|");
+    const list = pageKey.split("|").filter(Boolean);
     return registerInteractable({
       id,
       position: new Vector3(region.center[0] + x, y + markerHeight * 0.5, region.center[2] + z),
@@ -173,21 +186,33 @@ export function Interactable({
       prompt,
       action,
       use: () => {
+        if (locked) {
+          useCodex.getState().showNote(locked);
+          return { open: null, fresh: false };
+        }
         onUse?.();
         const fresh = useDiscoveries.getState().discover(list);
         return { open: list[0] ?? null, fresh: fresh.length > 0 };
       },
+      seat:
+        seatX !== undefined
+          ? {
+              position: new Vector3(region.center[0] + seatX, floorAt(region.center[0] + seatX, region.center[2] + seatZ!), region.center[2] + seatZ!),
+              facing: seatFacing!,
+              drop: seatDrop!,
+            }
+          : undefined,
       step:
         stepRadius && stepNote
           ? { radius: stepRadius, note: stepNote, pending: () => list.some((p) => !isFound(p)) }
           : undefined,
     });
-  }, [exploring, id, region, x, y, z, radius, prompt, action, markerHeight, pageKey, onUse, stepRadius, stepNote]);
+  }, [exploring, id, region, x, y, z, radius, prompt, action, markerHeight, pageKey, onUse, stepRadius, stepNote, locked, seatX, seatZ, seatFacing, seatDrop]);
 
   useFrame(({ clock }) => {
     const m = material.current;
     if (!m) return;
-    const pending = pageKey.split("|").some((p) => !isFound(p));
+    const pending = pendingOverride ? pendingOverride() : pageKey.split("|").filter(Boolean).some((p) => !isFound(p));
     const focused = interaction.focused?.id === id;
     const pulse = 0.55 + 0.45 * Math.sin(clock.elapsedTime * 2.2 + x);
     m.opacity = pending ? (focused ? 1 : 0.35 + 0.35 * pulse) : focused ? 0.45 : 0;

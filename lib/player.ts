@@ -34,7 +34,9 @@ export const player = {
   /** Whether the visitor has moved yet; the controls hint fades once they have. */
   moved: false,
   /** A one-off clip to play (using something); the body clears it when it finishes. */
-  action: null as "PickUp" | null,
+  action: null as "PickUp" | "Punch" | null,
+  /** Sitting (on a bench by the fire) until the visitor moves. */
+  seated: null as import("./interactables").Seat | null,
 };
 
 /**

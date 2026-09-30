@@ -77,6 +77,8 @@ export interface Profile {
 
 export interface About {
   paragraphs: string[];
+  /** What drives you: one or two sentences, after the paragraphs. */
+  drive: string;
   facts: { label: string; value: string }[];
 }
 

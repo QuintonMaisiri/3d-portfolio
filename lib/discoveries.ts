@@ -12,10 +12,13 @@ interface DiscoveryState {
   visited: RegionId[];
   /** Pages found this visit and not yet read in the Codex: they get the ink-writing reveal and a badge. */
   unread: string[];
+  /** Things carried that aren't pages (the Archive's key). */
+  items: string[];
 
   discover: (ids: readonly string[]) => string[];
   visit: (id: RegionId) => void;
   markRead: (id: string) => void;
+  take: (item: string) => void;
   /** Forget everything (from the Codex's settings), keeping the always-written pages. */
   reset: () => void;
 }
@@ -31,7 +34,11 @@ export const useDiscoveries = create<DiscoveryState>()(
       found: [...ALWAYS],
       visited: [],
       unread: [],
+      items: [],
 
+      take: (item) => {
+        if (!get().items.includes(item)) set((s) => ({ items: [...s.items, item] }));
+      },
       discover: (ids) => {
         const fresh = ids.filter((id) => !get().found.includes(id));
         if (fresh.length) set((s) => ({ found: [...s.found, ...fresh], unread: [...s.unread, ...fresh] }));
@@ -43,24 +50,26 @@ export const useDiscoveries = create<DiscoveryState>()(
       markRead: (id) => {
         if (get().unread.includes(id)) set((s) => ({ unread: s.unread.filter((u) => u !== id) }));
       },
-      reset: () => set({ found: [...ALWAYS], visited: [], unread: [] }),
+      reset: () => set({ found: [...ALWAYS], visited: [], unread: [], items: [] }),
     }),
     {
       name: "codex:discoveries",
       version: 1,
       storage: createJSONStorage(() => localStorage),
       skipHydration: true,
-      partialize: (s) => ({ found: s.found, visited: s.visited }),
+      partialize: (s) => ({ found: s.found, visited: s.visited, items: s.items }),
       // Pages added to the site later that are always written, and ids that no longer exist.
       merge: (saved, current) => {
         const known = new Set(codexPages.map((p) => p.id));
         const s = (saved ?? {}) as Partial<DiscoveryState>;
         const found = [...new Set([...ALWAYS, ...(s.found ?? []).filter((id) => known.has(id))])];
-        return { ...current, found, visited: s.visited ?? [] };
+        return { ...current, found, visited: s.visited ?? [], items: s.items ?? [] };
       },
     },
   ),
 );
+
+export const hasItem = (item: string) => useDiscoveries.getState().items.includes(item);
 
 /** Non-reactive check for frame loops. */
 export const isFound = (id: string) => useDiscoveries.getState().found.includes(id);

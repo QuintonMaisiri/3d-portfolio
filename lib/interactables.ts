@@ -1,7 +1,14 @@
 import { Vector3 } from "three";
 
 /** How the adventurer reacts when using something: stoop to pick it up, or just face it. */
-export type InteractAction = "pickup" | "look";
+export type InteractAction = "pickup" | "look" | "strike" | "sit";
+
+/** Where to sit (world): the adventurer is placed here facing `facing`, lowered by `drop` onto the seat. */
+export interface Seat {
+  position: Vector3;
+  facing: number;
+  drop: number;
+}
 
 export interface InteractableDef {
   id: string;
@@ -24,6 +31,8 @@ export interface InteractableDef {
    * pages at once, without stopping the adventurer; a note confirms it.
    */
   step?: { radius: number; pending: () => boolean; note: string };
+  /** For `action: "sit"`: the seat. */
+  seat?: Seat;
 }
 
 const registry = new Map<string, InteractableDef>();
