@@ -1,7 +1,8 @@
 /**
- * Every built model (see scripts/build-models.mjs), by what it is. All from
- * Quaternius packs, CC0: Stylized Nature MegaKit, Fantasy Props MegaKit,
- * Medieval Village MegaKit, Ultimate Modular Ruins Pack, Updated Modular Dungeon.
+ * Every built model (see scripts/build-models.mjs), by what it is. Quaternius
+ * packs (CC0): Stylized Nature, Fantasy Props, Medieval Village, Ultimate
+ * Modular Ruins, Updated Modular Dungeon, Survival. KayKit Resource Bits (CC0).
+ * Creatures from Sketchfab (CC-BY-4.0, credited in content/credits.ts).
  */
 const m = (path: string) => `/models/${path}.glb`;
 
@@ -50,6 +51,29 @@ export const MODELS = {
     bricks: m("ruins/bricks"),
     pots: [m("ruins/pot1-broken"), m("ruins/pot2-broken")],
   },
+  props2: {
+    /** Rigged: Chest_Open, Chest_Close, Chest_Opened, Chest_Closed. */
+    chest: m("props/chest-wood"),
+  },
+  character: m("character/adventurer"),
+  creatures: {
+    /** Clips: Idle, Fidget, SleepLoop, SleepEnd, Walk, Run, Flinch, StunStart, StunLoop. Authored ~6 long. */
+    oxBeetle: m("creatures/ox-beetle"),
+    /** Clips: Walk (rolling its ball), Attack. */
+    dungBeetle: m("creatures/dung-beetle"),
+    /** Clip: Scene (take-off and flight). Authored in cm (~170 wingspan). */
+    raven: m("creatures/raven"),
+  },
+  survival: Object.fromEntries(
+    ["tent", "backpack", "compass-open", "compass-closed", "bonfire", "wooden-torch", "wood-log", "shovel", "axe", "pan", "pot-small", "matchbox"].map((n) => [n, m(`survival/${n}`)]),
+  ) as Record<string, string>,
+  resources: Object.fromEntries(
+    [
+      "iron-bar", "iron-bars-stack-small", "gold-bar", "gold-bars", "copper-bar", "silver-bar", "iron-nuggets", "gold-nuggets",
+      "parts-cog", "parts-pile-small", "stone-chunks-small", "stone-chunks-large", "wood-log-stack", "wood-planks-stack-small",
+      "textiles-stack-small", "pallet-wood",
+    ].map((n) => [n, m(`resources/${n}`)]),
+  ) as Record<string, string>,
   dungeon: {
     pedestal: m("dungeon/pedestal"),
     pedestal2: m("dungeon/pedestal2"),

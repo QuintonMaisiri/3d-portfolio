@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { isRegionId, regions } from "@/lib/regions";
 import { useCodex } from "@/lib/store";
+import { Credits } from "./Credits";
 import { sectionContent } from "./sections";
 import { headingId } from "./ui";
 
@@ -43,6 +44,7 @@ export function PageView() {
             </section>
           );
         })}
+        <Credits />
       </div>
     </main>
   );

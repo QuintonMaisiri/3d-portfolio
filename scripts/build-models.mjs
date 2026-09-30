@@ -14,7 +14,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { NodeIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS, KHRDracoMeshCompression } from "@gltf-transform/extensions";
-import { dedup, prune, simplify, textureCompress, weld } from "@gltf-transform/functions";
+import { dedup, prune, resample, simplify, textureCompress, weld } from "@gltf-transform/functions";
 import draco3d from "draco3dgltf";
 import obj2gltf from "obj2gltf";
 import fbx2gltf from "fbx2gltf";
@@ -35,6 +35,53 @@ const MODELS = [
   // The adventurer (Ultimate Modular Ruins Pack, CC0): skinned and animated, so
   // it skips welding and simplifying, which would break the skin.
   { src: "character/Character_Animated.fbx", dest: "character/adventurer.glb", animated: true },
+
+  // Creatures (Sketchfab, CC-BY-4.0: credited on the site, see content/credits.ts).
+  // `clips` keeps only the named animations, renamed short: { newName: sourceName }.
+  {
+    src: "creatures/beetle/scene.gltf",
+    dest: "creatures/ox-beetle.glb",
+    animated: true,
+    texture: 512,
+    clips: Object.fromEntries(
+      [
+        ["Idle", "Idle_NC_01"],
+        ["Fidget", "Fidget_01"],
+        ["SleepLoop", "Sleep_Loop_01"],
+        ["SleepEnd", "Sleep_End_01"],
+        ["Walk", "Walk_Forward_01"],
+        ["Run", "Run_Forward_01"],
+        ["Flinch", "Flinch_F2B_01"],
+        ["StunStart", "Stun_Start_01"],
+        ["StunLoop", "Stun_Loop_01"],
+      ].map(([short, name]) => [short, `AS_BlackOxBeetle_${name}_SK_BlackOxBeetle01`]),
+    ),
+  },
+  { src: "creatures/dung_beetle.glb", dest: "creatures/dung-beetle.glb", animated: true, texture: 512 },
+  { src: "creatures/raven/scene.gltf", dest: "creatures/raven.glb", animated: true, texture: 512 },
+
+  // The Forest's project chests (Fantasy Props MegaKit, CC0): rigged, with Chest_Open / Chest_Close.
+  { src: "props/Exports/glTF/Chest_Wood.gltf", dest: "props/chest-wood.glb", animated: true, texture: 512 },
+
+  // Survival Pack (Quaternius, CC0, OBJ): camp and expedition gear. Modern items (guns, phones, cans) left out.
+  ...["Tent", "Backpack", "Compass_Open", "Compass_Closed", "Bonfire", "WoodenTorch", "WoodLog", "Shovel", "Axe", "Pan", "Pot_Small", "Matchbox"].map((name) => ({
+    src: `survival/Survival Pack - Sept 2020/OBJ/${name}.obj`,
+    dest: `survival/${kebab(name)}.glb`,
+    ratio: 1,
+    texture: 512,
+  })),
+
+  // KayKit Resource Bits (Kay Lousberg, CC0): ingots and raw materials for the Forge.
+  ...[
+    "Iron_Bar", "Iron_Bars_Stack_Small", "Gold_Bar", "Gold_Bars", "Copper_Bar", "Silver_Bar", "Iron_Nuggets", "Gold_Nuggets",
+    "Parts_Cog", "Parts_Pile_Small", "Stone_Chunks_Small", "Stone_Chunks_Large", "Wood_Log_Stack", "Wood_Planks_Stack_Small",
+    "Textiles_Stack_Small", "Pallet_Wood",
+  ].map((name) => ({
+    src: `kaykit/KayKit_ResourceBits_1.0_FREE/Assets/gltf/${name}.gltf`,
+    dest: `resources/${kebab(name)}.glb`,
+    ratio: 1,
+    texture: 256,
+  })),
 
   // The Enchanted Forest: woodland, project trees, undergrowth.
   // Background woodland is instanced by the hundred, so it's simplified hard.
@@ -90,6 +137,29 @@ const MODELS = [
   })),
 ];
 
+/** Removes an animation with its channels and samplers (disposing the clip alone leaves its keyframes behind). */
+function disposeClip(clip) {
+  for (const channel of clip.listChannels()) channel.dispose();
+  for (const sampler of clip.listSamplers()) sampler.dispose();
+  clip.dispose();
+}
+
+/**
+ * Older Sketchfab exports use KHR_materials_pbrSpecularGlossiness, which three
+ * no longer reads: move its diffuse colour and texture onto the base colour.
+ */
+function adoptSpecularGlossinessDiffuse(document) {
+  for (const material of document.getRoot().listMaterials()) {
+    const specGloss = material.getExtension("KHR_materials_pbrSpecularGlossiness");
+    if (!specGloss) continue;
+    material.setBaseColorFactor(specGloss.getDiffuseFactor());
+    if (specGloss.getDiffuseTexture()) material.setBaseColorTexture(specGloss.getDiffuseTexture());
+    material.setExtension("KHR_materials_pbrSpecularGlossiness", null);
+  }
+  for (const extension of document.getRoot().listExtensionsUsed())
+    if (extension.extensionName === "KHR_materials_pbrSpecularGlossiness") extension.dispose();
+}
+
 /** Converts an FBX with the FBX2glTF binary into a temporary .glb and reads it. */
 async function readFbx(src) {
   const dir = mkdtempSync(join(tmpdir(), "fbx-"));
@@ -127,8 +197,23 @@ for (const model of MODELS.filter((m) => !only || m.dest.includes(only))) {
 
   if (model.animated) {
     // FBX2glTF writes every clip twice ("Walk" and "CharacterArmature|Walk"); keep the short names.
-    for (const clip of document.getRoot().listAnimations()) if (clip.getName().includes("|")) clip.dispose();
-    await document.transform(dedup(), prune());
+    for (const clip of document.getRoot().listAnimations()) if (clip.getName().includes("|")) disposeClip(clip);
+    if (model.clips) {
+      const wanted = new Map(Object.entries(model.clips).map(([short, name]) => [name, short]));
+      for (const clip of document.getRoot().listAnimations()) {
+        const short = wanted.get(clip.getName());
+        if (short) clip.setName(short);
+        else disposeClip(clip);
+      }
+    }
+    adoptSpecularGlossinessDiffuse(document);
+    await document.transform(
+      dedup(),
+      // Drops keyframes that lie on a straight line between their neighbours.
+      resample(),
+      ...(model.texture ? [textureCompress({ encoder: sharp, targetFormat: "webp", resize: [model.texture, model.texture] })] : []),
+      prune(),
+    );
   } else await document.transform(
     dedup(),
     weld(),

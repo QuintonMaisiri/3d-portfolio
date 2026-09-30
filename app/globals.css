@@ -1,4 +1,7 @@
 @import "tailwindcss";
+/* Never scan the raw asset packs or built models for class names (huge glTF/OBJ text crashed the scanner). */
+@source not "../assets-inbox";
+@source not "../public";
 
 /*
  * Content colours come from CSS variables so the same section components can
