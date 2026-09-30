@@ -4,7 +4,7 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 import { BufferAttribute, Color, Object3D, Vector3, type InstancedMesh, type Points, type PointsMaterial } from "three";
 import { problemCases } from "@/content/problems";
 import { clamp01, easeOutCubic, smoothstep } from "@/lib/journey";
-import { beatProgress, narrative } from "@/lib/narrative";
+import { sceneBeat } from "@/lib/narrative";
 import { mulberry32, between } from "@/lib/random";
 import { regionById } from "@/lib/regions";
 import { distanceTo } from "@/lib/timeline";
@@ -23,6 +23,7 @@ import {
   Snow,
   type BoltHandle,
 } from "./models/peaks";
+import { Interactable } from "@/components/world/explore/Interaction";
 import { ambientMotion, groundAt, RegionSlot, scatter, useRegionFrame } from "./shared";
 
 const region = regionById.peaks;
@@ -158,8 +159,7 @@ export function Peaks() {
 
     // The climb: each case lights its route from the base upward as it builds
     // into the panel (beat 0 is the header), then its summit beacon ignites.
-    const panel = narrative.panels[region.index]!;
-    const beat = PEAKS.map((_, p) => beatProgress(panel.reveal, p + 1, panel.beats));
+    const beat = PEAKS.map((_, p) => sceneBeat(region.index, p + 1));
     const points = markers.current;
     if (points) {
       const color = points.geometry.getAttribute("color") as BufferAttribute;
@@ -250,6 +250,25 @@ export function Peaks() {
         <Mountain key={peak.id} height={peak.height} radius={peak.radius} position={[peak.x, peak.base, peak.z]} />
       ))}
       <ClimbMarkers ref={markers} count={MARKERS.length} size={0.9} profile="glow" />
+      {PEAKS.map((peak, p) => {
+        // At the foot of the trail, on the camera-facing side, just out from the first lantern.
+        const foot = MARKERS.find((m) => m.peak === p && m.k === 0)!.position;
+        const out = Math.atan2(foot.x - peak.x, foot.z - peak.z);
+        const x = foot.x + Math.sin(out) * 1.4;
+        const z = foot.z + Math.cos(out) * 1.4;
+        return (
+          <Interactable
+            key={`use-${peak.id}`}
+            id={`peaks:${peak.id}`}
+            region={region}
+            position={[x, ground(x, z), z]}
+            pages={[`problem:${peak.id}`]}
+            prompt="Start the climb"
+            markerHeight={1.6}
+            color={region.palette.accent}
+          />
+        );
+      })}
       <MountainRange items={range} />
       <Rocks items={boulders} color="#6f727b" />
       <Pines items={pines} />

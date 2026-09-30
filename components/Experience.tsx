@@ -8,6 +8,7 @@ import { Header } from "@/components/nav/Header";
 import { RegionMap } from "@/components/nav/RegionMap";
 import { ScrollDriver } from "@/components/ScrollDriver";
 import { WorldLayer } from "@/components/world/WorldLayer";
+import { Codex } from "@/components/codex/Codex";
 import { ExploreHud } from "@/components/world/explore/ExploreHud";
 import { isViewMode, useCodex, VIEW_STORAGE_KEY, type ViewMode } from "@/lib/store";
 import { isRegionId } from "@/lib/regions";
@@ -78,6 +79,7 @@ export function Experience() {
         <>
           <WorldLayer enabled={webgl === "supported"} mode="explore" />
           <ExploreHud />
+          <Codex />
         </>
       ) : viewMode === "journey" ? (
         <>

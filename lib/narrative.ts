@@ -1,4 +1,6 @@
+import { codexPages } from "@/content/codex";
 import { narration } from "@/content/narration";
+import { isFound } from "./discoveries";
 import { clamp01, smoothstep } from "./journey";
 import { DWELL_RATIO, REGION_COUNT, regions } from "./regions";
 
@@ -42,7 +44,30 @@ export const narrative = {
   /** Set by the world on its first rendered frame, so the opening plays where it can be seen. */
   worldReady: false,
   waited: 0,
+  /** True in explore mode, where scene beats follow discoveries instead of panel reveals. */
+  exploring: false,
+  /** Explore mode: per region, per beat, how far that beat has played (0..1). */
+  sceneBeats: regions.map<number[]>(() => []),
 };
+
+/** Per region, per scene beat: the Codex pages that light it (see content/codex.ts). */
+const beatPages = regions.map((r) => {
+  const byBeat: string[][] = [];
+  for (const page of codexPages) if (page.region === r.id) for (const b of page.beats) (byBeat[b] ??= []).push(page.id);
+  return byBeat;
+});
+
+/**
+ * How far scene beat `i` of region `region` has played, 0..1. In the journey
+ * it follows the panel's text beat by beat; exploring, it plays when the
+ * Codex page it belongs to is discovered. Beats without a page (a region's
+ * arrival, the hero's tagline) follow the region's arrival in both.
+ */
+export function sceneBeat(region: number, i: number) {
+  const panel = narrative.panels[region]!;
+  if (!narrative.exploring) return beatProgress(panel.reveal, i, panel.beats);
+  return narrative.sceneBeats[region]?.[i] ?? beatProgress(panel.reveal, i, panel.beats);
+}
 
 /** Progress (0..1) of beat `i` of `n` for a given panel reveal. Mirrors the CSS in globals.css. */
 export function beatProgress(reveal: number, i: number, n: number) {
@@ -53,6 +78,7 @@ export function beatProgress(reveal: number, i: number, n: number) {
 const captionFor = regions.map((r) => narration[r.id] ?? "");
 
 export function updateNarrative(progress: number, dt: number, reducedMotion: boolean) {
+  narrative.exploring = false;
   const at = progress * REGION_COUNT;
 
   // Reduced motion: no builds, no captions, no opening. The current region's
@@ -104,6 +130,7 @@ const EXPLORE_ARRIVE = 0.35;
  * `position` is the player's journey position (see lib/player.ts).
  */
 export function updateExploreNarrative(position: number, dt: number, reducedMotion: boolean) {
+  narrative.exploring = true;
   if (reducedMotion) {
     narrative.intro = 1;
     narrative.introTime = INTRO_SECONDS;
@@ -120,4 +147,15 @@ export function updateExploreNarrative(position: number, dt: number, reducedMoti
     panel.leave = 1;
   });
   narrative.caption.opacity = 0;
+
+  // Each discovery plays its scene beat (an orb group rising, a tablet surfacing).
+  beatPages.forEach((byBeat, r) => {
+    const beats = narrative.sceneBeats[r]!;
+    byBeat.forEach((pages, b) => {
+      if (!pages) return;
+      const target = pages.some(isFound) ? 1 : 0;
+      const now = beats[b] ?? target;
+      beats[b] = reducedMotion ? target : now + Math.sign(target - now) * Math.min(Math.abs(target - now), dt / REVEAL_SECONDS);
+    });
+  });
 }

@@ -4,7 +4,7 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 import { BufferAttribute, Color, Object3D, type Group, type InstancedMesh, type Points } from "three";
 import { skillGroups } from "@/content/skills";
 import { easeOutCubic, lerp } from "@/lib/journey";
-import { beatProgress, narrative } from "@/lib/narrative";
+import { sceneBeat } from "@/lib/narrative";
 import { mulberry32, between } from "@/lib/random";
 import { regionById, SKILL_GROUP_COLORS } from "@/lib/regions";
 import {
@@ -21,6 +21,7 @@ import {
   type MoltenPoolHandle,
   type PedestalHandle,
 } from "./models/forge";
+import { Interactable } from "@/components/world/explore/Interaction";
 import { ambientMotion, groundAt, RegionSlot, scatter, useRegionFrame } from "./shared";
 
 const region = regionById.forge;
@@ -172,11 +173,10 @@ export function Forge() {
   useRegionFrame(region, ({ clock }, delta) => {
     const t = clock.elapsedTime;
     const ambient = ambientMotion();
-    const panel = narrative.panels[region.index]!;
 
     // Each group rises from the lava with its line in the Skills panel (beat 0
     // is the header), arcs over and settles above its pedestal, which lights.
-    const rise = skillGroups.map((_, g) => easeOutCubic(beatProgress(panel.reveal, g + 1, panel.beats)));
+    const rise = skillGroups.map((_, g) => easeOutCubic(sceneBeat(region.index, g + 1)));
     rise.forEach((r, g) => pedestals.current[g]?.setLit(r));
 
     const mesh = orbMesh.current;
@@ -251,6 +251,19 @@ export function Forge() {
           color={groupColor(g)}
           height={p.height}
           position={[p.x, ground(p.x, p.z) - 0.05, p.z]}
+        />
+      ))}
+      {PEDESTALS.map((p, g) => (
+        <Interactable
+          key={`use-${p.id}`}
+          id={`forge:${p.id}`}
+          region={region}
+          position={[p.x, ground(p.x, p.z), p.z]}
+          pages={[`skill:${p.id}`]}
+          prompt={`Kindle ${skillGroups[g]!.name}`}
+          radius={2}
+          markerHeight={p.height + 0.6}
+          color={groupColor(g)}
         />
       ))}
       <SkillOrbs ref={orbMesh} count={orbs.length} />

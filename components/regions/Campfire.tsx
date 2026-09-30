@@ -22,6 +22,7 @@ import {
   type RavenHandle,
 } from "./models/campfire";
 import { GrassField } from "@/components/world/GrassField";
+import { Interactable } from "@/components/world/explore/Interaction";
 import { ambientMotion, groundAt, RegionSlot, scatter, useRegionFrame } from "./shared";
 
 const region = regionById.campfire;
@@ -150,6 +151,15 @@ export function Campfire() {
   return (
     <RegionSlot region={region}>
       <Fire ref={flames} position={[FIRE.x, ground(FIRE.x, FIRE.z), FIRE.z]} />
+      <Interactable
+        id="campfire:fire"
+        region={region}
+        position={[FIRE.x, ground(FIRE.x, FIRE.z), FIRE.z + 1.9]}
+        pages={["contact"]}
+        prompt="Sit by the fire and write a letter"
+        markerHeight={1.5}
+        color={region.palette.accent}
+      />
       <GlowPoints ref={embers} count={SPARK_COUNT} size={0.26} profile="glow" />
       <Stones items={ring} />
       <CampGear props={gear} />

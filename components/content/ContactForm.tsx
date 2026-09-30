@@ -28,10 +28,13 @@ export function ContactForm() {
     const data = new FormData(e.currentTarget);
     const get = (key: string) => String(data.get(key) ?? "").trim();
     const href = buildMailto(get("name"), get("email"), get("message"));
-    const { reducedMotion, viewMode } = useCodex.getState();
+    const { reducedMotion, viewMode, activeRegion, closeCodex } = useCodex.getState();
     setSent(true);
-    // In the journey the raven flies first; otherwise open the email app straight away.
-    if (viewMode === "journey" && !reducedMotion) {
+    // At the Campfire (journey, or exploring there) the raven flies first; otherwise open the email app straight away.
+    const ravenInView = viewMode === "journey" || (viewMode === "explore" && activeRegion === "campfire");
+    if (ravenInView && !reducedMotion) {
+      // Exploring, close the Codex so the raven can be seen leaving.
+      if (viewMode === "explore") closeCodex();
       sendRaven();
       window.setTimeout(() => {
         window.location.href = href;

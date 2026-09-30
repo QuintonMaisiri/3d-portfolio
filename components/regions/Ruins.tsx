@@ -1,10 +1,10 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { BufferAttribute, BufferGeometry, Color, Object3D, type InstancedMesh, type Mesh, type MeshBasicMaterial, type Points, type PointsMaterial } from "three";
 import { milestones } from "@/content/experience";
 import { clamp01, easeOutCubic, lerp } from "@/lib/journey";
-import { beatProgress, narrative } from "@/lib/narrative";
+import { sceneBeat } from "@/lib/narrative";
 import { mulberry32, between } from "@/lib/random";
 import { regionById } from "@/lib/regions";
 import { SoftPointsMaterial, useGeometry } from "./placeholders/common";
@@ -23,6 +23,8 @@ import {
   type MilestoneTabletHandle,
 } from "./models/ruins";
 import { clearOfCamera } from "@/lib/cameraPath";
+import { registerSurface } from "@/lib/surfaces";
+import { Interactable } from "@/components/world/explore/Interaction";
 import { ambientMotion, RegionSlot, useRegionFrame } from "./shared";
 
 const region = regionById.ruins;
@@ -94,6 +96,12 @@ export function Ruins() {
   const water = useRef<Mesh>(null);
   const moteGroup = useRef<Points>(null);
 
+  // Wading depth: the adventurer's feet rest this far below the water.
+  useEffect(
+    () => registerSurface("ruins:lagoon", { x: region.center[0], z: region.center[2] - 4, radius: 46, y: WATER_Y - 0.55 }),
+    [],
+  );
+
   useLayoutEffect(() => {
     const mesh = causeway.current;
     if (!mesh) return;
@@ -109,12 +117,11 @@ export function Ruins() {
   }, []);
 
   useRegionFrame(region, ({ clock }) => {
-    const panel = narrative.panels[region.index]!;
     const t = clock.elapsedTime;
     const ambient = ambientMotion();
     // Each milestone's beat (beat 0 is the header): its tablet rises from the
     // water and its inscription lights; the causeway to it lights on the way.
-    const beat = TABLETS.map((_, i) => beatProgress(panel.reveal, i + 1, panel.beats));
+    const beat = TABLETS.map((_, i) => sceneBeat(region.index, i + 1));
 
     TABLETS.forEach((_, i) => {
       const rise = easeOutCubic(beat[i]!);
@@ -171,6 +178,18 @@ export function Ruins() {
       <BrokenArch position={[8, WATER_Y - 1.2, -16]} rotation={[0, -0.4, 0]} />
       <SunkenSteps position={[-3.5, WATER_Y + 0.2, 3]} rotation={[0, 0.5, 0]} />
       <Causeway ref={causeway} count={CAUSEWAY.length} />
+      {TABLETS.map((tab) => (
+        <Interactable
+          key={`use-${tab.id}`}
+          id={`ruins:${tab.id}`}
+          region={region}
+          position={[tab.x + 1.3, WATER_Y, tab.z + 1]}
+          pages={[`milestone:${tab.id}`]}
+          prompt="Raise the tablet"
+          markerHeight={2.2}
+          color={region.palette.accent}
+        />
+      ))}
       {TABLETS.map((tab, i) => (
         <group key={tab.id}>
           <MilestoneTablet

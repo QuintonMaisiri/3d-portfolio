@@ -49,6 +49,67 @@
   --on-accent: #fffdf8;
 }
 
+/* The Codex: dark ink on parchment (paper under a light wash). All pairs pass WCAG AA on the washed paper (~#e8d5b3). */
+.theme-codex {
+  color-scheme: light;
+  --ink: #2b1d0e;
+  --muted: #5b4632;
+  --accent: #8a2e12;
+  --line: rgb(91 70 50 / 0.28);
+  --surface: #f3e7cf;
+  --field: rgb(255 250 238 / 0.55);
+  --on-accent: #fbf3e3;
+}
+
+.theme-codex,
+.theme-codex * {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(91 70 50 / 0.45) transparent;
+}
+
+.codex-paper {
+  background-color: #e8d5b3;
+  background-image: linear-gradient(rgb(245 236 215 / 0.55), rgb(245 236 215 / 0.55)), url("/codex/paper.webp");
+  background-size: auto, 384px;
+}
+
+/* The spine: a soft shadow where the two pages meet. */
+@media (min-width: 768px) {
+  .codex-contents {
+    box-shadow: inset -18px 0 24px -20px rgb(60 40 20 / 0.45);
+  }
+}
+
+.codex-cover {
+  background-color: #3c2e2c;
+  background-image: url("/codex/leather.webp");
+  background-size: 256px;
+}
+
+/* A newly written page: the ink appears top to bottom. */
+@media (prefers-reduced-motion: no-preference) {
+  .ink-in {
+    animation: ink-in 1.6s ease-out both;
+    -webkit-mask-image: linear-gradient(to bottom, #000 40%, transparent 60%);
+    mask-image: linear-gradient(to bottom, #000 40%, transparent 60%);
+    -webkit-mask-size: 100% 250%;
+    mask-size: 100% 250%;
+  }
+}
+
+@keyframes ink-in {
+  from {
+    -webkit-mask-position: 0 100%;
+    mask-position: 0 100%;
+    opacity: 0.4;
+  }
+  to {
+    -webkit-mask-position: 0 0;
+    mask-position: 0 0;
+    opacity: 1;
+  }
+}
+
 html {
   background: var(--night);
   scrollbar-gutter: stable;

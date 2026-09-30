@@ -6,6 +6,7 @@ import { Vector3, type PerspectiveCamera } from "three";
 import { cameraLookAt, orbit } from "@/lib/cameraState";
 import { insideCollider } from "@/lib/colliders";
 import { input } from "@/lib/input";
+import { interaction } from "@/lib/interactables";
 import { damp, easeOutCubic } from "@/lib/journey";
 import { narrative } from "@/lib/narrative";
 import { player } from "@/lib/player";
@@ -28,7 +29,11 @@ const FOV = 55;
 /** Portrait screens see less to the sides, so the arm reaches further back. */
 const PORTRAIT_REACH = 1.35;
 
+/** Using something: how far the look point moves toward it, and how much closer the camera comes. */
+const SHOT = { toward: 0.45, closer: 0.7 };
+
 const focus = new Vector3();
+const shotFocus = new Vector3();
 const arm = new Vector3();
 const probe = new Vector3();
 
@@ -72,6 +77,7 @@ export function FollowCamera() {
     const snap = player.teleported;
     const followRate = reduced ? 30 : 10;
     const target = probe.copy(player.position).setY(player.position.y + FOCUS_HEIGHT);
+    if (interaction.shot) target.lerp(shotFocus.copy(interaction.shot), SHOT.toward);
     if (snap) focus.copy(target);
     else {
       focus.x = damp(focus.x, target.x, followRate, dt);
@@ -83,7 +89,7 @@ export function FollowCamera() {
     const opening = 1 - easeOutCubic(narrative.intro);
     const pitch = Math.min(PITCH[1], orbit.pitch + INTRO.pitch * opening);
     const reach = cam.aspect < 1 ? PORTRAIT_REACH : 1;
-    const wanted = orbit.distance * reach * (1 + INTRO.distance * opening);
+    const wanted = orbit.distance * reach * (1 + INTRO.distance * opening) * (interaction.shot ? SHOT.closer : 1);
     arm.set(Math.sin(orbit.yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(orbit.yaw) * Math.cos(pitch));
 
     // Spring arm: walk out from the focus until something is in the way.

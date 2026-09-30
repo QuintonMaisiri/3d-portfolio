@@ -336,7 +336,7 @@ Each phase ends with a review, as in v1.
 | Phase | Goal | Output |
 |---|---|---|
 | **V2.0 Foundation** (done) | The adventurer walks | Character converted and animated, controller with navmesh, spring-arm camera, input (keys, click, touch), a test glade |
-| **V2.1 Interaction and Codex** | The loop works | `Interactable`, focus shots, the Codex UI (HTML book, map, progress), discovery persistence, audio engine with placeholder sounds |
+| **V2.1 Interaction and Codex** (done) | The loop works | `Interactable`, focus shots, the Codex UI (HTML book, map, progress), discovery persistence, audio engine with placeholder sounds |
 | **V2.2 Vertical slice: the Forest** | One region at award quality | Chests with animations, sculpted glade, stylized shader, grading, grass reacting to the character, sound. This is the proof. |
 | **V2.3 Roads** | Continuous world | Travel cinematics between glades, region streaming, waystones and fast travel |
 | **V2.4 to V2.10** | Remaining regions, in journey order | Each region's interactables, signature moment and threshold |

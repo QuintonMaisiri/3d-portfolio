@@ -4,7 +4,7 @@ import { useMemo, useRef } from "react";
 import { Vector3, type Group, type Points } from "three";
 import { cameraPath, clearOfCamera, waypointU } from "@/lib/cameraPath";
 import { easeOutCubic, lerp } from "@/lib/journey";
-import { beatProgress, narrative } from "@/lib/narrative";
+import { narrative, sceneBeat } from "@/lib/narrative";
 import { mulberry32, between } from "@/lib/random";
 import { regionById } from "@/lib/regions";
 import type { Vec3 } from "@/lib/types";
@@ -23,6 +23,7 @@ import {
   Steps,
   type ScrollHandle,
 } from "./models/archive";
+import { Interactable } from "@/components/world/explore/Interaction";
 import { ambientMotion, groundAt, RegionSlot, scatter, useRegionFrame } from "./shared";
 
 const region = regionById.archive;
@@ -137,7 +138,7 @@ export function Archive() {
     // itself as that paragraph appears (beat 0 is the header).
     const panel = narrative.panels[region.index]!;
     ink.current.forEach((_, i) => {
-      ink.current[i] = beatProgress(panel.reveal, i + 1, panel.beats);
+      ink.current[i] = sceneBeat(region.index, i + 1);
     });
     scroll.current?.update(easeOutCubic(panel.reveal), ink.current);
 
@@ -158,6 +159,7 @@ export function Archive() {
       <Bookshelves items={shelves} />
       <Pillars items={pillars} />
       <Lectern position={[0, floorY, 0]} />
+      <Interactable id="archive:scroll" region={region} position={[0, floorY, 0.6]} pages={["about"]} prompt="Read the scroll" markerHeight={2.4} />
       <BookStack position={[1.9, floorY, 0.9]} />
       <HangingScroll ref={scroll} length={SCROLL_LENGTH} position={[0, floorY + SCROLL_TOP, -2]} />
       <group ref={candleGroup}>

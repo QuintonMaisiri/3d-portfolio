@@ -4,6 +4,7 @@ import { useAnimations, useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import {
+  LoopOnce,
   Mesh,
   MeshLambertMaterial,
   Raycaster,
@@ -17,9 +18,11 @@ import {
 import { DRACO_PATH } from "@/lib/assets";
 import { orbit } from "@/lib/cameraState";
 import { resolveCircle } from "@/lib/colliders";
+import { interaction } from "@/lib/interactables";
 import { input, moveAxes } from "@/lib/input";
 import { damp } from "@/lib/journey";
 import { clampToValley, PLAYER, player, spawnPoint } from "@/lib/player";
+import { floorAt } from "@/lib/surfaces";
 import { useCodex } from "@/lib/store";
 import { groundHeight } from "@/lib/terrain";
 
@@ -109,10 +112,16 @@ export function PlayerController() {
     }
 
     // Intent: keys steer relative to the camera; otherwise head for the tapped spot.
-    const axes = moveAxes();
+    // While using something the adventurer stands still and turns to it.
+    const using = interaction.active;
+    const axes = using ? { x: 0, y: 0, run: false } : moveAxes();
     let speed = 0;
     desired.set(0, 0, 0);
-    if (axes.x || axes.y) {
+    if (using) {
+      player.target = null;
+      const facing = Math.atan2(using.position.x - player.position.x, using.position.z - player.position.z);
+      player.heading += angleTo(player.heading, facing) * (1 - Math.exp(-10 * dt));
+    } else if (axes.x || axes.y) {
       player.target = null;
       const sin = Math.sin(orbit.yaw);
       const cos = Math.cos(orbit.yaw);
@@ -141,7 +150,8 @@ export function PlayerController() {
     // Valley edge first, then props, so a rock at the edge can't hold the adventurer inside it.
     clampToValley(player.position);
     resolveCircle(player.position, PLAYER.radius, PLAYER.height);
-    player.position.y = groundHeight(player.position.x, player.position.z);
+    // The terrain, or a surface above it (wading in the Ruins lagoon).
+    player.position.y = floorAt(player.position.x, player.position.z);
 
     // Speed actually made good (after collisions), which is what the feet should show.
     const moved = Math.hypot(player.position.x - previous.x, player.position.z - previous.z);
@@ -170,8 +180,20 @@ export function PlayerController() {
 export function Player() {
   const { scene, animations } = useGLTF(URL, DRACO_PATH);
   const root = useRef<Group>(null);
-  const { actions } = useAnimations(animations, root);
-  const current = useRef<Clip | null>(null);
+  const { actions, mixer } = useAnimations(animations, root);
+  const current = useRef<Clip | "PickUp" | null>(null);
+
+  // One-off actions return to idle when their clip ends.
+  useEffect(() => {
+    const done = () => {
+      if (current.current === "PickUp") {
+        player.action = null;
+        current.current = null;
+      }
+    };
+    mixer.addEventListener("finished", done);
+    return () => mixer.removeEventListener("finished", done);
+  }, [mixer]);
 
   // Lambert like the rest of the world (and cheaper than PBR); skinning is automatic.
   const materials = useMemo(() => {
@@ -190,10 +212,11 @@ export function Player() {
   }, [scene]);
   useEffect(() => () => materials.forEach((m) => m.dispose()), [materials]);
 
-  const play = (clip: Clip) => {
+  const play = (clip: Clip | "PickUp") => {
     if (current.current === clip) return;
     const next = actions[clip] as AnimationAction | undefined;
     if (!next) return;
+    if (clip === "PickUp") next.setLoop(LoopOnce, 1);
     next.reset().fadeIn(FADE).play();
     if (current.current) actions[current.current]?.fadeOut(FADE);
     current.current = clip;
@@ -206,7 +229,11 @@ export function Player() {
       body.rotation.y = player.heading;
     }
 
-    // Idle, walk or run, with the clip's pace matched to the ground speed.
+    // A one-off action, else idle, walk or run with the clip's pace matched to the ground speed.
+    if (player.action) {
+      play(player.action);
+      return;
+    }
     const clip: Clip = player.speed < WALK_FROM ? "Idle" : player.speed < RUN_FROM ? "Walk" : "Run";
     play(clip);
     if (clip !== "Idle") actions[clip]?.setEffectiveTimeScale(Math.max(0.5, player.speed / CLIP_PACE[clip]));

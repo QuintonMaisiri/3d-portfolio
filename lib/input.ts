@@ -14,6 +14,8 @@ export const input = {
   tap: null as { x: number; y: number } | null,
   /** performance.now() of the last manual look, so the camera doesn't fight the visitor. */
   lastLook: -Infinity,
+  /** E was pressed: use the nearest thing. Consumed by the interaction system. */
+  interact: false,
 };
 
 /** Movement keys, by code (layout-independent: WASD on AZERTY is still the same physical keys). */
@@ -31,7 +33,12 @@ export function attachInput(canvas: HTMLElement) {
   let dragged = false;
 
   const onKeyDown = (e: KeyboardEvent) => {
-    if (!MOVE.has(e.code) || typing(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (typing(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.code === "KeyE" && !e.repeat) {
+      input.interact = true;
+      return;
+    }
+    if (!MOVE.has(e.code)) return;
     input.keys.add(e.code);
     // Arrow keys would otherwise scroll the page.
     if (e.code.startsWith("Arrow")) e.preventDefault();

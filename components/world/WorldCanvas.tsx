@@ -13,6 +13,7 @@ import { CameraRig } from "./CameraRig";
 import { Director } from "./Director";
 import { ExploreDirector } from "./explore/ExploreDirector";
 import { FollowCamera } from "./explore/FollowCamera";
+import { InteractionSystem } from "./explore/Interaction";
 import { Player, PlayerController } from "./explore/Player";
 import { SkyDome } from "./SkyDome";
 import { Terrain } from "./Terrain";
@@ -92,6 +93,7 @@ export default function WorldCanvas({ mode }: { mode: "explore" | "journey" }) {
         <>
           <ExploreDirector />
           <PlayerController />
+          <InteractionSystem />
           <FollowCamera />
           <Suspense fallback={null}>
             <Player />

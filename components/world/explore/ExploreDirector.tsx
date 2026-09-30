@@ -3,6 +3,8 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import { colliderCount, collidersNear, updateColliders } from "@/lib/colliders";
+import { useDiscoveries } from "@/lib/discoveries";
+import { getInteractable, interaction } from "@/lib/interactables";
 import { attachInput, input } from "@/lib/input";
 import { narrative, updateExploreNarrative } from "@/lib/narrative";
 import { journeyPositionAt, player, playerRegionIndex, spawnPoint } from "@/lib/player";
@@ -44,14 +46,16 @@ export function ExploreDirector() {
     if (gl.extensions.has("KHR_parallel_shader_compile")) void gl.compileAsync(scene, camera);
     else gl.compile(scene, camera);
     if (process.env.NODE_ENV === "development")
-      Object.assign(window, { __codex: { journey, camera, narrative, store: useCodex, weather, scene, player, input, colliderCount, collidersNear } });
+      Object.assign(window, { __codex: { journey, camera, narrative, store: useCodex, weather, scene, player, input, colliderCount, collidersNear, getInteractable, interaction, discoveries: useDiscoveries } });
   }, [gl, scene, camera]);
 
   useFrame((_, delta) => {
     const { reducedMotion, setActiveRegion } = useCodex.getState();
     journey.position = journeyPositionAt(player.position.z);
     updateExploreNarrative(journey.position, delta, reducedMotion);
-    setActiveRegion(regions[playerRegionIndex(journey.position)]!.id);
+    const here = regions[playerRegionIndex(journey.position)]!.id;
+    setActiveRegion(here);
+    useDiscoveries.getState().visit(here);
 
     sinceRebuild.current += delta;
     if (sinceRebuild.current >= COLLIDER_REBUILD_SECONDS) {

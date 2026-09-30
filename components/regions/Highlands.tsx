@@ -4,7 +4,7 @@ import { useMemo, useRef } from "react";
 import { Vector3, type Mesh, type MeshBasicMaterial } from "three";
 import { cameraPath, waypointU } from "@/lib/cameraPath";
 import { easeOutCubic, lerp, smoothstep } from "@/lib/journey";
-import { beatProgress, narrative } from "@/lib/narrative";
+import { narrative, sceneBeat } from "@/lib/narrative";
 import { mulberry32, between } from "@/lib/random";
 import { regionById } from "@/lib/regions";
 import { GrassField } from "@/components/world/GrassField";
@@ -22,6 +22,7 @@ import {
   type CrowsHandle,
   type StoneTabletHandle,
 } from "./models/highlands";
+import { Interactable } from "@/components/world/explore/Interaction";
 import { ambientMotion, groundAt, RegionSlot, scatter, useRegionFrame } from "./shared";
 
 const region = regionById.highlands;
@@ -116,8 +117,7 @@ export function Highlands() {
     const ambient = ambientMotion();
 
     // The tagline carves itself into the stone as it appears in the panel.
-    const panel = narrative.panels[region.index]!;
-    tablet.current?.setCarving(easeOutCubic(beatProgress(panel.reveal, TAGLINE_BEAT, panel.beats)));
+    tablet.current?.setCarving(easeOutCubic(sceneBeat(region.index, TAGLINE_BEAT)));
 
     // Mist hangs thick in the opening and thins as the name emerges.
     const thickness = lerp(INTRO_MIST, 1, easeOutCubic(narrative.intro));
@@ -141,6 +141,14 @@ export function Highlands() {
         glow={region.palette.accent}
         position={[TABLET_X, ground(TABLET_X, TABLET_Z) - 0.2, TABLET_Z]}
         rotation={[0, 0.35, 0]}
+      />
+      <Interactable
+        id="highlands:tablet"
+        region={region}
+        position={[TABLET_X + 1.2, ground(TABLET_X + 1.2, TABLET_Z + 1.4), TABLET_Z + 1.4]}
+        pages={["hero"]}
+        prompt="Read the tablet"
+        markerHeight={3.6}
       />
       <StandingStones items={stones} />
       <Cairn position={[12, ground(12, -7) - 0.2, -7]} />

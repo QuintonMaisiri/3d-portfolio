@@ -4,13 +4,14 @@ import { useMemo, useRef } from "react";
 import { BufferAttribute, BufferGeometry, Color, type Mesh, type MeshLambertMaterial, type Points } from "three";
 import { testimonials } from "@/content/testimonials";
 import { damp, easeOutCubic, lerp } from "@/lib/journey";
-import { beatProgress, narrative } from "@/lib/narrative";
+import { sceneBeat } from "@/lib/narrative";
 import { mulberry32, between } from "@/lib/random";
 import { regionById } from "@/lib/regions";
 import { useCodex } from "@/lib/store";
 import type { Vec3 } from "@/lib/types";
 import { SoftPointsMaterial, useGeometry } from "./placeholders/common";
 import { CaveRock, Crystal, CrystalShards, GlowPoints, Stalactites, Stalagmites } from "./models/caves";
+import { Interactable } from "@/components/world/explore/Interaction";
 import { ambientMotion, groundAt, RegionSlot, scatter, useRegionFrame } from "./shared";
 
 const region = regionById.caves;
@@ -119,7 +120,6 @@ export function Caves() {
   const hover = useRef<number[]>(CRYSTALS.map(() => 0));
 
   useRegionFrame(region, ({ clock }, delta) => {
-    const panel = narrative.panels[region.index]!;
     const t = clock.elapsedTime;
     const ambient = ambientMotion();
     const hovered = useCodex.getState().hoveredQuoteId;
@@ -129,7 +129,7 @@ export function Caves() {
     CRYSTALS.forEach((cr, i) => {
       // Each crystal wakes as its quote builds into the panel (beat 0 is the
       // header), and brightens while its quote is hovered.
-      const glow = easeOutCubic(beatProgress(panel.reveal, i + 1, panel.beats));
+      const glow = easeOutCubic(sceneBeat(region.index, i + 1));
       const target = hovered === cr.id ? 1 : 0;
       hover.current[i] = ambient ? damp(hover.current[i]!, target, 10, delta) : target;
       const h = hover.current[i]!;
@@ -170,6 +170,18 @@ export function Caves() {
       <Stalactites items={stalactites} />
       <Stalagmites items={stalagmites} />
       <CrystalShards items={shards} color="#9b7cf0" />
+      {CRYSTALS.map((c) => (
+        <Interactable
+          key={`use-${c.id}`}
+          id={`caves:${c.id}`}
+          region={region}
+          position={[c.x + 1.6, ground(c.x + 1.6, c.z + 1.2), c.z + 1.2]}
+          pages={[`quote:${c.id}`]}
+          prompt="Touch the crystal"
+          markerHeight={2}
+          color={region.palette.accent}
+        />
+      ))}
       {CRYSTALS.map((c, i) => (
         <Crystal
           key={c.id}

@@ -38,6 +38,13 @@ interface CodexState {
   ravenSentAt: number | null;
   /** Explore mode: a region to fast-travel to, consumed by the Player. */
   travelRequest: RegionId | null;
+  /** Explore mode: the prompt for the nearest usable thing ("Read the tablet"), if any. */
+  prompt: { id: string; text: string } | null;
+  /** Explore mode: the prompt's button (or a click on the thing) asked to use this. */
+  interactRequest: string | null;
+  /** The Codex journal is open (the world pauses behind it), at this page if set. */
+  codexOpen: boolean;
+  codexPage: string | null;
 
   setRawProgress: (p: number) => void;
   setSmoothProgress: (p: number) => void;
@@ -52,6 +59,10 @@ interface CodexState {
   hoverQuote: (id: string | null) => void;
   sendRaven: () => void;
   travelTo: (id: RegionId | null) => void;
+  setPrompt: (prompt: { id: string; text: string } | null) => void;
+  requestInteract: (id: string | null) => void;
+  openCodex: (page?: string | null) => void;
+  closeCodex: () => void;
 }
 
 export const useCodex = create<CodexState>()((set, get) => ({
@@ -69,6 +80,10 @@ export const useCodex = create<CodexState>()((set, get) => ({
   hoveredQuoteId: null,
   ravenSentAt: null,
   travelRequest: null,
+  prompt: null,
+  interactRequest: null,
+  codexOpen: false,
+  codexPage: null,
 
   setRawProgress: (rawProgress) => set({ rawProgress }),
   setSmoothProgress: (smoothProgress) => set({ smoothProgress }),
@@ -99,9 +114,17 @@ export const useCodex = create<CodexState>()((set, get) => ({
   },
   sendRaven: () => set({ ravenSentAt: performance.now() }),
   travelTo: (travelRequest) => set({ travelRequest }),
+  setPrompt: (prompt) => {
+    const now = get().prompt;
+    if (now?.id !== prompt?.id || now?.text !== prompt?.text) set({ prompt });
+  },
+  requestInteract: (interactRequest) => set({ interactRequest }),
+  openCodex: (page = null) => set((s) => ({ codexOpen: true, codexPage: page ?? s.codexPage })),
+  closeCodex: () => set({ codexOpen: false }),
   hoverQuote: (hoveredQuoteId) => {
     if (get().hoveredQuoteId !== hoveredQuoteId) set({ hoveredQuoteId });
   },
 }));
 
-export const selectJourneyPaused = (s: CodexState) => s.openProjectId !== null;
+/** The world stops rendering behind the project dialog and the Codex. */
+export const selectJourneyPaused = (s: CodexState) => s.openProjectId !== null || s.codexOpen;

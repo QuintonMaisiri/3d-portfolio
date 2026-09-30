@@ -6,10 +6,11 @@ import { useEffect, useMemo, useRef } from "react";
 import type { Mesh, MeshBasicMaterial, Points } from "three";
 import { projects } from "@/content/projects";
 import { damp, easeOutCubic } from "@/lib/journey";
-import { beatProgress, narrative } from "@/lib/narrative";
+import { narrative, sceneBeat } from "@/lib/narrative";
 import { mulberry32, between } from "@/lib/random";
 import { regionById } from "@/lib/regions";
 import { useCodex } from "@/lib/store";
+import { input } from "@/lib/input";
 import { GrassField } from "@/components/world/GrassField";
 // Asset slot: "./models/forest" (real models) or "./placeholders/forest" (primitives).
 import {
@@ -22,6 +23,7 @@ import {
   Undergrowth,
   type ProjectTreeHandle,
 } from "./models/forest";
+import { Interactable } from "@/components/world/explore/Interaction";
 import { ambientMotion, groundAt, RegionSlot, scatter, useRegionFrame } from "./shared";
 
 const region = regionById.forest;
@@ -136,12 +138,11 @@ export function Forest() {
     const ambient = ambientMotion();
     // Each project's tree lights as its name builds into the panel (beat 0 is
     // the header) and brightens while hovered, here or in the panel list.
-    const panel = narrative.panels[region.index]!;
     const current = useCodex.getState().hoveredProjectId;
     PROJECT_SPOTS.forEach((spot, i) => {
       const target = current === spot.id ? 1 : 0;
       hover.current[i] = ambient ? damp(hover.current[i]!, target, 10, delta) : target;
-      trees.current[i]?.setGlow(easeOutCubic(beatProgress(panel.reveal, i + 1, panel.beats)), hover.current[i]!);
+      trees.current[i]?.setGlow(easeOutCubic(sceneBeat(region.index, i + 1)), hover.current[i]!);
     });
 
     if (!ambient) return;
@@ -169,7 +170,11 @@ export function Forest() {
       e.stopPropagation();
       if (!forestIsPresent()) return;
       setCursor(false);
-      openProject(id);
+      // Exploring, the tree is used like anything else: walk over, read its page into the Codex.
+      if (useCodex.getState().viewMode === "explore") {
+        input.tap = null;
+        useCodex.getState().requestInteract(`forest:${id}`);
+      } else openProject(id);
     },
   });
 
@@ -180,6 +185,18 @@ export function Forest() {
       <ForestTrees items={woodland} />
       <Undergrowth items={undergrowth} />
       <GrassField region={region} count={28000} area={FOREST_GRASS} root="#1c3526" tip="#6fa47f" seed={410} />
+      {PROJECT_SPOTS.map((spot) => (
+        <Interactable
+          key={`use-${spot.id}`}
+          id={`forest:${spot.id}`}
+          region={region}
+          position={[spot.x, ground(spot.x, spot.z), spot.z + 2.2]}
+          pages={[`project:${spot.id}`]}
+          prompt={`Read ${projects.find((p) => p.id === spot.id)!.name}`}
+          markerHeight={2.4}
+          color="#ffb070"
+        />
+      ))}
       {PROJECT_SPOTS.map((spot, i) => (
         <ProjectTree
           key={spot.id}
