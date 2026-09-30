@@ -108,6 +108,7 @@ Where content is missing (project write-ups, problem-solving case studies, testi
 
 ### Done in V2.2: the Forest vertical slice (v2 branch)
 - **Project chests** (`ProjectChest` in `components/regions/models/forest.tsx`): the rigged `chest-wood.glb` (cloned per chest with SkeletonUtils, Lambert + rim) at each project tree's roots, `CHEST_OFFSET` 2.1 toward the approach. `setOpen(amount)` from the project's scene beat: plays Chest_Open once (Chest_Opened if already open on load), light spills from the lid, and the scroll (`props/scroll-1.glb`) rises and turns above it. The Interactable sits on the chest: "Open the chest" (kneel: PickUp), then "Read <project>".
+- **Reveal before the book** (fix after Quinton's review: the lid only opened once the Codex closed, because the world pauses behind it): using something now runs act (the adventurer's action) -> `use()` writes the pages -> reveal (`REVEAL_SECONDS` 2 in Interaction.tsx, only when a page was new; skipped under reduced motion) with the adventurer held and the camera framed while the world reacts -> the Codex opens. The prompt hides while in use.
 - **Guides:** three firefly glows orbit each unopened chest and fade as it opens (`GlowPoints`, vertex colours).
 - **Finale:** all six projects found: the canopy shafts flare and a moonbeam (`LightShaft`, scaled) falls on the glade, eased in.
 - **Grass parts round the adventurer** (`grassSway` in `lib/wind.ts`, fed by `playerPush`, which the PlayerController updates): blades within ~1.4 lean away, applied in view space after projection. All grass fields.

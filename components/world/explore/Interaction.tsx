@@ -20,16 +20,26 @@ import type { RegionConfig, Vec3 } from "@/lib/types";
 
 /** Seconds the adventurer's action plays before the thing is used. */
 const ACTION_SECONDS: Record<InteractAction, number> = { pickup: 1, look: 0.45 };
+/**
+ * After a new discovery, the world reacts (a chest opens and its scroll
+ * rises, orbs lift, a tablet surfaces) for this long before the Codex opens
+ * over it. Matches the scene beats' build (REVEAL_SECONDS in lib/narrative).
+ */
+const REVEAL_SECONDS = 2;
 /** A walk-to-use counts as arrived this far inside the thing's radius. */
 const ARRIVE = 0.75;
 
 function start(def: InteractableDef) {
   interaction.active = def;
+  interaction.phase = "act";
+  interaction.opening = null;
   interaction.remaining = useCodex.getState().reducedMotion ? 0 : ACTION_SECONDS[def.action];
   interaction.shot = def.position;
   interaction.pending = null;
   player.target = null;
   player.action = def.action === "pickup" ? "PickUp" : null;
+  // No prompt while it's in use; it returns (with its new wording) once the reveal is over.
+  useCodex.getState().setPrompt(null);
 }
 
 /**
@@ -46,9 +56,17 @@ export function InteractionSystem() {
     if (interaction.active) {
       interaction.remaining -= dt;
       if (interaction.remaining <= 0) {
-        const def = interaction.active;
-        interaction.active = null;
-        def.use();
+        if (interaction.phase === "act") {
+          // Write the pages; if any were new, let the world react before the book opens over it.
+          const { open, fresh } = interaction.active.use();
+          interaction.opening = open;
+          interaction.phase = "reveal";
+          interaction.remaining = fresh && !store.reducedMotion ? REVEAL_SECONDS : 0;
+        } else {
+          interaction.active = null;
+          if (interaction.opening) store.openCodex(interaction.opening);
+          else interaction.shot = null;
+        }
       }
       input.interact = false;
       return;
@@ -142,8 +160,8 @@ export function Interactable({
       action,
       use: () => {
         onUse?.();
-        useDiscoveries.getState().discover(list);
-        useCodex.getState().openCodex(list[0]);
+        const fresh = useDiscoveries.getState().discover(list);
+        return { open: list[0] ?? null, fresh: fresh.length > 0 };
       },
     });
   }, [exploring, id, region, x, y, z, radius, prompt, action, markerHeight, pageKey, onUse]);

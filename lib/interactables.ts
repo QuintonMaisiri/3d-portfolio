@@ -12,8 +12,12 @@ export interface InteractableDef {
   /** Verb phrase for the prompt, e.g. "Read the tablet". */
   prompt: string;
   action: InteractAction;
-  /** What using it does (after the adventurer's action plays). */
-  use: () => void;
+  /**
+   * What using it does (after the adventurer's action plays): writes its
+   * pages and returns the Codex page to open, and whether anything was new
+   * (then the world's reaction plays before the Codex opens).
+   */
+  use: () => { open: string | null; fresh: boolean };
 }
 
 const registry = new Map<string, InteractableDef>();
@@ -38,8 +42,12 @@ export const interaction = {
   pending: null as string | null,
   /** Being used: the adventurer turns and acts, then `use` runs. */
   active: null as InteractableDef | null,
-  /** Seconds left of the action before `use` runs. */
+  /** Seconds left of the current phase: the adventurer's action, then the world's reaction. */
   remaining: 0,
+  /** "act": the adventurer acts, then `use` runs; "reveal": the world reacts (a chest opens), then the Codex opens. */
+  phase: "act" as "act" | "reveal",
+  /** The Codex page to open when the reveal ends. */
+  opening: null as string | null,
   /** Camera framing point while something is being used (cleared when the Codex closes). */
   shot: null as Vector3 | null,
 };
