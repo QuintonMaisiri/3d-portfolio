@@ -1,4 +1,4 @@
-import type { Material } from "three";
+import { Color, Vector3, type Material } from "three";
 
 /**
  * Shared time for vertex wind and water shimmer. Advanced by <WindClock> in
@@ -7,7 +7,72 @@ import type { Material } from "three";
  */
 export const windTime = { value: 0 };
 
-type ShaderHooks = Pick<Material, "onBeforeCompile" | "customProgramCacheKey">;
+export type ShaderHooks = Pick<Material, "onBeforeCompile" | "customProgramCacheKey">;
+
+/** The adventurer's feet, world space (far away when there's no adventurer). Grass bends away from it. */
+export const playerPush = { value: new Vector3(0, -1e4, 0) };
+
+/**
+ * Wind sway plus grass parting round the adventurer: blades within about
+ * 1.4 units lean away from their feet, most at the tip. The push is applied
+ * after projection (in view space), so it's cheap and works per instance.
+ */
+export function grassSway(from: number, amount: number): ShaderHooks {
+  const wind = windSway(from, amount);
+  return {
+    onBeforeCompile(shader, renderer) {
+      wind.onBeforeCompile!(shader, renderer);
+      shader.uniforms.uPlayer = playerPush;
+      shader.vertexShader = `uniform vec3 uPlayer;
+${shader.vertexShader}`.replace(
+        "#include <project_vertex>",
+        `#include <project_vertex>
+        {
+          #ifdef USE_INSTANCING
+            vec3 grassRoot = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+          #else
+            vec3 grassRoot = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+          #endif
+          vec2 away = grassRoot.xz - uPlayer.xz;
+          float near = 1.0 - smoothstep(0.35, 1.4, length(away));
+          near *= step(abs(grassRoot.y - uPlayer.y), 2.0);
+          float bend = near * max(position.y - ${from.toFixed(2)}, 0.0) * 1.6;
+          vec3 push = vec3(normalize(away + 1e-4) * bend, 0.0).xzy;
+          push.y = -bend * 0.45;
+          mvPosition.xyz += (viewMatrix * vec4(push, 0.0)).xyz;
+          gl_Position = projectionMatrix * mvPosition;
+        }`,
+      );
+    },
+    customProgramCacheKey: () => `grass-${from}-${amount}`,
+  };
+}
+
+/**
+ * A soft rim light on models: surfaces turned away from the camera catch a
+ * little of the key light's colour, so silhouettes read against fog and
+ * each other. Atmosphere keeps the colour in step with the region's light.
+ */
+export const rimColor = { value: new Color(0, 0, 0) };
+
+export function withRim(hooks?: ShaderHooks): ShaderHooks {
+  return {
+    onBeforeCompile(shader, renderer) {
+      hooks?.onBeforeCompile?.(shader, renderer);
+      shader.uniforms.uRimColor = rimColor;
+      shader.fragmentShader = `uniform vec3 uRimColor;
+${shader.fragmentShader}`.replace(
+        "#include <opaque_fragment>",
+        `{
+          float rimFacing = 1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0);
+          outgoingLight += uRimColor * pow(rimFacing, 4.0);
+        }
+        #include <opaque_fragment>`,
+      );
+    },
+    customProgramCacheKey: () => `rim-${hooks?.customProgramCacheKey?.() ?? ""}`,
+  };
+}
 
 /**
  * Material hooks that sway a mesh in the wind. Vertices above `from` (in the

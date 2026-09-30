@@ -11,6 +11,7 @@ import { windTime } from "@/lib/wind";
 import { Atmosphere } from "./Atmosphere";
 import { CameraRig } from "./CameraRig";
 import { Director } from "./Director";
+import { Grade } from "./Grade";
 import { ExploreDirector } from "./explore/ExploreDirector";
 import { FollowCamera } from "./explore/FollowCamera";
 import { InteractionSystem } from "./explore/Interaction";
@@ -117,6 +118,8 @@ export default function WorldCanvas({ mode }: { mode: "explore" | "journey" }) {
           <N8AO halfRes quality="performance" aoRadius={2} distanceFalloff={1} intensity={2.2} />
           {/* A soft glow on the brightest things only: lava, fire, beacons, crystals, lanterns. */}
           <Bloom mipmapBlur luminanceThreshold={0.82} luminanceSmoothing={0.2} intensity={0.55} />
+          {/* Each region's colour temperature, and a soft vignette. */}
+          <Grade />
         </EffectComposer>
       ) : null}
       {Perf ? (

@@ -11,6 +11,10 @@ import { journey } from "@/lib/timeline";
 import { cameraLookAt } from "@/lib/cameraState";
 import { skyColors } from "./SkyDome";
 import { FLASH_DECAY, weather } from "@/lib/weather";
+import { rimColor } from "@/lib/wind";
+
+/** How strongly silhouettes catch the key light (see withRim). */
+const RIM_STRENGTH = 0.18;
 
 /** Hemisphere intensity is shared; each region tints it through its palette. */
 const HEMI_INTENSITY = 2.2;
@@ -99,6 +103,7 @@ export function Atmosphere() {
       key.current.target.updateMatrixWorld();
       key.current.color.lerpColors(a.key, b.key, m);
       key.current.intensity = lerp(a.keyIntensity, b.keyIntensity, m) + flash * FLASH_KEY;
+      rimColor.value.copy(key.current.color).multiplyScalar(RIM_STRENGTH * Math.min(1.2, key.current.intensity));
     }
 
     const t = clock.elapsedTime;

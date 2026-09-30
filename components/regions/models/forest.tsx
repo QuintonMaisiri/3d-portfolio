@@ -6,20 +6,30 @@
  * Forest.tsx swaps between them by changing one import. While models load,
  * the placeholders stand in.
  */
-import { forwardRef, Suspense, useImperativeHandle, useRef } from "react";
+import { useAnimations, useGLTF } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
+import { forwardRef, Suspense, useEffect, useImperativeHandle, useMemo, useRef } from "react";
 import {
   AdditiveBlending,
   BufferAttribute,
   BufferGeometry,
   Color,
-  type Mesh,
+  LoopOnce,
+  Mesh,
+  MeshLambertMaterial,
+  type Group,
+  type MeshStandardMaterial,
   type MeshBasicMaterial as BasicMaterial,
   type PointsMaterial,
 } from "three";
 import { type Placement } from "@/components/world/Scatter";
 import { ModelScatter, useModelParts, type ModelLook } from "@/components/world/ModelScatter";
+import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
+import { DRACO_PATH } from "@/lib/assets";
+import { easeOutCubic } from "@/lib/journey";
 import { regionById } from "@/lib/regions";
-import { windSway } from "@/lib/wind";
+import { useCodex } from "@/lib/store";
+import { windSway, withRim } from "@/lib/wind";
 import { PROJECT_TREE_HEIGHT, type ProjectTreeHandle } from "../placeholders/forest";
 import { useGeometry, useSoftDot, type GroupProps } from "../placeholders/common";
 import { ModelWoodland } from "./woodland";
@@ -172,3 +182,112 @@ export const ProjectTree = forwardRef<ProjectTreeHandle, GroupProps & { accent: 
     );
   },
 );
+
+export interface ProjectChestHandle {
+  /** 0 = closed, rising to 1 as its project is discovered: the lid opens, light spills, the scroll rises. */
+  setOpen: (amount: number) => void;
+}
+
+const CHEST_URL = "/models/props/chest-wood.glb";
+const SCROLL_URL = "/models/props/scroll-1.glb";
+const CHEST_LOOK: ModelLook = { other: "#e8dcc8" };
+/** Where the scroll floats once risen, above the chest's base. */
+const SCROLL_RISE = [0.35, 1.5] as const;
+
+/** The chest at a project tree's roots (Fantasy Props MegaKit, rigged with Chest_Open). */
+const ChestModel = forwardRef<ProjectChestHandle, GroupProps & { glow: string }>(function ChestModel({ glow, ...props }, ref) {
+  const { scene, animations } = useGLTF(CHEST_URL, DRACO_PATH);
+  // Six chests share one file: each needs its own skeleton.
+  const copy = useMemo(() => {
+    const c = cloneSkinned(scene);
+    c.traverse((o) => {
+      if (!(o instanceof Mesh)) return;
+      const source = o.material as MeshStandardMaterial;
+      o.material = Object.assign(
+        new MeshLambertMaterial({ map: source.map, color: source.color.clone().multiply(new Color(CHEST_LOOK.other)) }),
+        withRim(),
+      );
+      o.castShadow = true;
+      o.frustumCulled = false;
+    });
+    return c;
+  }, [scene]);
+  useEffect(
+    () => () =>
+      copy.traverse((o) => {
+        if (o instanceof Mesh) (o.material as MeshLambertMaterial).dispose();
+      }),
+    [copy],
+  );
+  const body = useRef<Group>(null);
+  const { actions } = useAnimations(animations, body);
+  const scroll = useModelParts(SCROLL_URL, CHEST_LOOK);
+  const artifact = useRef<Group>(null);
+  const spill = useRef<PointsMaterial>(null);
+  const halo = useRef<PointsMaterial>(null);
+  const opened = useRef<boolean | null>(null);
+  const amount = useRef(0);
+  const dot = useSoftDot();
+  const spillGeometry = useGeometry(() => new BufferGeometry().setAttribute("position", new BufferAttribute(new Float32Array([0, 0.55, 0]), 3)));
+
+  useImperativeHandle(ref, () => ({
+    setOpen(value) {
+      amount.current = value;
+      const open = value > 0.02;
+      if (open === opened.current) return;
+      // Already open when first seen (a returning visitor): rest open, don't replay.
+      const clip = open ? (opened.current === null && value >= 1 ? "Chest_Opened" : "Chest_Open") : "Chest_Closed";
+      opened.current = open;
+      for (const a of Object.values(actions)) a?.stop();
+      const action = actions[clip];
+      if (!action) return;
+      action.setLoop(LoopOnce, 1);
+      action.clampWhenFinished = true;
+      action.reset().play();
+    },
+  }));
+
+  useFrame(({ clock }) => {
+    const a = easeOutCubic(amount.current);
+    const t = clock.elapsedTime;
+    const still = useCodex.getState().reducedMotion;
+    if (artifact.current) {
+      artifact.current.visible = a > 0.01;
+      artifact.current.position.y = SCROLL_RISE[0] + (SCROLL_RISE[1] - SCROLL_RISE[0]) * a + (still ? 0 : Math.sin(t * 1.6) * 0.06 * a);
+      if (!still) artifact.current.rotation.y = t * 0.7;
+    }
+    if (spill.current) spill.current.opacity = a * (0.75 + (still ? 0 : 0.15 * Math.sin(t * 3.1)));
+    if (halo.current) halo.current.opacity = a * 0.9;
+  });
+
+  return (
+    <group {...props} userData={{ walkThrough: true }}>
+      <group ref={body}>
+        <primitive object={copy} />
+      </group>
+      {/* Light spilling out of the open lid, and a halo round the rising scroll. */}
+      <points geometry={spillGeometry}>
+        <pointsMaterial ref={spill} map={dot} color={glow} size={2.8} sizeAttenuation transparent opacity={0} depthWrite={false} blending={AdditiveBlending} />
+      </points>
+      <group ref={artifact} visible={false}>
+        <group rotation={[0, 0, Math.PI / 2]} scale={3}>
+          {scroll.map((p, i) => (
+            <mesh key={i} geometry={p.geometry} material={p.material} />
+          ))}
+        </group>
+        <points geometry={spillGeometry} position={[0, -0.55, 0]}>
+          <pointsMaterial ref={halo} map={dot} color="#fff3d6" size={1.3} sizeAttenuation transparent opacity={0} depthWrite={false} blending={AdditiveBlending} />
+        </points>
+      </group>
+    </group>
+  );
+});
+
+/** A project's chest (appears once its model has loaded). */
+export const ProjectChest = forwardRef<ProjectChestHandle, GroupProps & { glow: string }>(function ProjectChest(props, ref) {
+  return (
+    <Suspense fallback={null}>
+      <ChestModel ref={ref} {...props} />
+    </Suspense>
+  );
+});

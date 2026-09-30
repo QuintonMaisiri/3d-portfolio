@@ -2,22 +2,29 @@
 
 import { useEffect, useMemo } from "react";
 import { BufferAttribute, Color, PlaneGeometry, type Material } from "three";
+import { trailDistance } from "@/lib/cameraPath";
 import { REGION_COUNT, REGION_SPACING, regions } from "@/lib/regions";
 import { groundHeight, pathAt } from "@/lib/terrain";
 
 /**
  * Breaks up the flat ground colour: large soft patches (lighter, darker, a
- * little drier) and a fine speckle, from world-space value noise.
+ * little drier) and a fine speckle, from world-space value noise. A worn
+ * trail follows the road between regions (v1's camera route, which every
+ * prop keeps clear of), leading the eye and the feet onward.
  */
 const groundPatches: Pick<Material, "onBeforeCompile" | "customProgramCacheKey"> = {
   onBeforeCompile(shader) {
-    shader.vertexShader = `varying vec3 vGroundPos;
+    shader.vertexShader = `attribute float aTrail;
+varying vec3 vGroundPos;
+varying float vTrail;
 ${shader.vertexShader}`.replace(
       "#include <begin_vertex>",
       `#include <begin_vertex>
-      vGroundPos = (modelMatrix * vec4(transformed, 1.0)).xyz;`,
+      vGroundPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+      vTrail = aTrail;`,
     );
     shader.fragmentShader = `varying vec3 vGroundPos;
+      varying float vTrail;
       float groundHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float groundNoise(vec2 p) {
         vec2 i = floor(p);
@@ -37,11 +44,23 @@ ${shader.vertexShader}`.replace(
         // Drier, warmer patches here and there.
         float dry = smoothstep(0.62, 0.85, groundNoise(g * 0.05 + 17.0));
         diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.12, 1.03, 0.82), dry * 0.6);
+        // The trail: packed earth with a wandering edge, and a little grit.
+        float edge = abs(vTrail) + (groundNoise(g * 0.9) - 0.5) * 0.7;
+        float trail = 1.0 - smoothstep(0.8, 1.7, edge);
+        vec3 earth = diffuseColor.rgb * vec3(1.05, 0.9, 0.7) * (0.92 + 0.16 * fine);
+        diffuseColor.rgb = mix(diffuseColor.rgb, earth, trail * 0.75);
       }`,
     );
   },
-  customProgramCacheKey: () => "ground-patches",
+  customProgramCacheKey: () => "ground-patches-trail",
 };
+
+/** Signed distance from each vertex to the road: linear across a face, so the trail stays crisp. */
+function trailOffsets(position: BufferAttribute) {
+  const out = new Float32Array(position.count);
+  for (let v = 0; v < position.count; v++) out[v] = trailDistance(position.getX(v), position.getZ(v));
+  return out;
+}
 
 const WIDTH = 200;
 const Z_START = 45;
@@ -75,6 +94,7 @@ export function Terrain() {
     }
 
     g.setAttribute("color", new BufferAttribute(colors, 3));
+    g.setAttribute("aTrail", new BufferAttribute(trailOffsets(position), 1));
     g.computeVertexNormals();
     return g;
   }, []);

@@ -23,8 +23,10 @@ import { input, moveAxes } from "@/lib/input";
 import { damp } from "@/lib/journey";
 import { clampToValley, PLAYER, player, spawnPoint } from "@/lib/player";
 import { floorAt } from "@/lib/surfaces";
+import { playerPush } from "@/lib/wind";
 import { useCodex } from "@/lib/store";
 import { groundHeight } from "@/lib/terrain";
+import { withRim } from "@/lib/wind";
 
 const URL = "/models/character/adventurer.glb";
 
@@ -153,6 +155,8 @@ export function PlayerController() {
     // The terrain, or a surface above it (wading in the Ruins lagoon).
     player.position.y = floorAt(player.position.x, player.position.z);
 
+    playerPush.value.copy(player.position);
+
     // Speed actually made good (after collisions), which is what the feet should show.
     const moved = Math.hypot(player.position.x - previous.x, player.position.z - previous.z);
     player.speed = dt > 0 ? moved / dt : 0;
@@ -201,7 +205,7 @@ export function Player() {
     scene.traverse((object) => {
       if (!(object instanceof Mesh)) return;
       const source = object.material as MeshStandardMaterial;
-      const material = new MeshLambertMaterial({ color: source.color, name: source.name });
+      const material = Object.assign(new MeshLambertMaterial({ color: source.color, name: source.name }), withRim());
       made.push(material);
       object.material = material;
       object.castShadow = true;

@@ -5,6 +5,7 @@ import type { ThreeElements } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
 import { Color, Mesh, MeshLambertMaterial, type BufferGeometry, type Material, type MeshStandardMaterial } from "three";
 import { DRACO_PATH } from "@/lib/assets";
+import { withRim } from "@/lib/wind";
 import { markCollidersDirty } from "@/lib/colliders";
 import { Scatter, type Placement } from "./Scatter";
 
@@ -57,7 +58,10 @@ export function useModelParts(url: string, look: ModelLook = {}): ModelPart[] {
         // Alpha-masked leaf cards (glTF MASK) keep their cut-out, and cast cut-out shadows.
         alphaTest: source.alphaTest > 0 ? source.alphaTest : source.transparent ? 0.5 : 0,
       });
-      if (foliage && wind) Object.assign(material, wind);
+      // Foliage sways (leaf cards' normals point every way, so no rim light there); everything else gets the rim.
+      if (foliage) {
+        if (wind) Object.assign(material, wind);
+      } else Object.assign(material, withRim());
       if (glowSource && glowColor && new RegExp(glowSource, "i").test(source.name)) {
         material.color.set("#000000");
         material.emissive.set(glowColor);

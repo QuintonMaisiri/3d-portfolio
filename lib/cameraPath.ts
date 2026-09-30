@@ -58,6 +58,46 @@ export function clearOfCamera(x: number, z: number, radius: number): boolean {
   return true;
 }
 
+/** The road on the ground: the camera route, evenly spaced, for the worn trail and keeping grass off it. */
+const road = cameraPath.getSpacedPoints(900);
+const TRAIL_CELL = 1;
+const trailCache = new Map<number, number>();
+
+/**
+ * Signed ground-plane distance from (x, z) to the road (sign = which side),
+ * clamped to +-12. Exact; `trailDistanceCached` is the fast approximation
+ * (per 1-unit cell) for scattering thousands of things.
+ */
+export function trailDistance(x: number, z: number) {
+  let best = Infinity;
+  let side = 1;
+  for (let i = 0; i < road.length - 1; i++) {
+    const a = road[i]!;
+    const b = road[i + 1]!;
+    const dx = b.x - a.x;
+    const dz = b.z - a.z;
+    const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / (dx * dx + dz * dz || 1)));
+    const px = a.x + dx * t - x;
+    const pz = a.z + dz * t - z;
+    const d = px * px + pz * pz;
+    if (d < best) {
+      best = d;
+      side = Math.sign(dx * (z - a.z) - dz * (x - a.x)) || 1;
+    }
+  }
+  return Math.min(12, Math.sqrt(best)) * side;
+}
+
+export function trailDistanceCached(x: number, z: number) {
+  const key = Math.round(x / TRAIL_CELL) * 100003 + Math.round(z / TRAIL_CELL);
+  let d = trailCache.get(key);
+  if (d === undefined) {
+    d = Math.abs(trailDistance(Math.round(x / TRAIL_CELL) * TRAIL_CELL, Math.round(z / TRAIL_CELL) * TRAIL_CELL));
+    trailCache.set(key, d);
+  }
+  return d;
+}
+
 const ARC_DIVISIONS = 2000;
 // getPointAt maps through the same table, so waypoints land exactly.
 cameraPath.arcLengthDivisions = ARC_DIVISIONS;

@@ -1,4 +1,14 @@
-import { InstancedMesh, Matrix4, Mesh, Points, SkinnedMesh, Vector3, type Material, type Object3D } from "three";
+import {
+  InstancedMesh,
+  Matrix4,
+  Mesh,
+  Points,
+  SkinnedMesh,
+  Vector3,
+  type BufferGeometry,
+  type Material,
+  type Object3D,
+} from "three";
 
 /**
  * Solid props as upright boxes on the ground plane, rotated about y, built
@@ -26,6 +36,55 @@ const MIN_HEIGHT = 0.35;
 /** Anything wider than this is terrain or sky, not a prop. */
 const MAX_SPAN = 60;
 const CELL = 8;
+/** A prop's footprint is taken from its geometry below this height (world units): trunks, not crowns. */
+const BODY_TOP = 2.6;
+const SLABS = 12;
+
+/**
+ * Per geometry: its local x/z extents from the bottom up, in SLABS horizontal
+ * slices (cumulative), so an instance's footprint can use only the part
+ * below BODY_TOP whatever its scale. A tree collides at its trunk, not the
+ * spread of its branches.
+ */
+interface Slabs {
+  minY: number;
+  maxY: number;
+  /** [minX, maxX, minZ, maxZ] of everything from the bottom up to the end of slab i. */
+  boxes: [number, number, number, number][];
+}
+const slabCache = new WeakMap<BufferGeometry, Slabs>();
+
+function slabsOf(geometry: BufferGeometry): Slabs {
+  const cached = slabCache.get(geometry);
+  if (cached) return cached;
+  const box = geometry.boundingBox!;
+  const minY = box.min.y;
+  const maxY = box.max.y;
+  const per: [number, number, number, number][] = Array.from({ length: SLABS }, () => [Infinity, -Infinity, Infinity, -Infinity]);
+  const pos = geometry.getAttribute("position");
+  for (let i = 0; i < pos.count; i++) {
+    const k = Math.min(SLABS - 1, Math.floor(((pos.getY(i) - minY) / Math.max(1e-6, maxY - minY)) * SLABS));
+    const b = per[k]!;
+    const x = pos.getX(i);
+    const z = pos.getZ(i);
+    if (x < b[0]) b[0] = x;
+    if (x > b[1]) b[1] = x;
+    if (z < b[2]) b[2] = z;
+    if (z > b[3]) b[3] = z;
+  }
+  const boxes: [number, number, number, number][] = [];
+  let run: [number, number, number, number] = [Infinity, -Infinity, Infinity, -Infinity];
+  for (const b of per) {
+    run = [Math.min(run[0], b[0]), Math.max(run[1], b[1]), Math.min(run[2], b[2]), Math.max(run[3], b[3])];
+    boxes.push(run);
+  }
+  const slabs = { minY, maxY, boxes };
+  slabCache.set(geometry, slabs);
+  return slabs;
+}
+
+const footprintMin = new Vector3();
+const footprintMax = new Vector3();
 
 let colliders: Collider[] = [];
 const grid = new Map<string, Collider[]>();
@@ -88,12 +147,24 @@ export function updateColliders(scene: Object3D) {
     if (!geometry.boundingBox) geometry.computeBoundingBox();
     const box = geometry.boundingBox!;
     if (box.max.y - box.min.y < 1e-4) return;
+    const slabs = slabsOf(geometry);
+    const place = (matrix: Matrix4) => {
+      // Footprint from the geometry below BODY_TOP at this instance's scale; height from the whole thing.
+      const e = matrix.elements;
+      const scaleY = Math.hypot(e[4]!, e[5]!, e[6]!);
+      const reach = (BODY_TOP / Math.max(1e-6, scaleY) / Math.max(1e-6, slabs.maxY - slabs.minY)) * SLABS;
+      const b = slabs.boxes[Math.max(0, Math.min(SLABS - 1, Math.ceil(reach) - 1))]!;
+      if (!Number.isFinite(b[0])) return;
+      footprintMin.set(b[0], box.min.y, b[2]);
+      footprintMax.set(b[1], box.max.y, b[3]);
+      add(footprintMin, footprintMax, matrix);
+    };
     if (object instanceof InstancedMesh) {
       for (let i = 0; i < object.count; i++) {
         object.getMatrixAt(i, instance);
-        add(box.min, box.max, world.multiplyMatrices(object.matrixWorld, instance));
+        place(world.multiplyMatrices(object.matrixWorld, instance));
       }
-    } else add(box.min, box.max, object.matrixWorld);
+    } else place(object.matrixWorld);
   });
   grid.clear();
   for (const c of colliders) {
@@ -151,6 +222,19 @@ export function resolveCircle(p: Vector3, radius: number, height: number) {
     }
   }
   return p;
+}
+
+/** Dev inspection: the collider containing a point, if any. */
+export function colliderAt(p: Vector3, margin: number) {
+  for (const c of nearby(p.x, p.z)) {
+    if (p.y < c.y0 - margin || p.y > c.y1 + margin) continue;
+    const dx = p.x - c.x;
+    const dz = p.z - c.z;
+    const u = dx * c.ax + dz * c.az;
+    const v = -dx * c.az + dz * c.ax;
+    if (Math.abs(u) < c.hx + margin && Math.abs(v) < c.hz + margin) return c;
+  }
+  return null;
 }
 
 /** True if a point is inside any collider (with a margin), e.g. the camera. */

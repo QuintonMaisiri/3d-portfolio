@@ -15,6 +15,10 @@ import { groundHeight } from "@/lib/terrain";
 
 /** Look height above the adventurer's feet (about the shoulders). */
 const FOCUS_HEIGHT = 1.55;
+/** Blocked behind: rather than squeezing in closer than this, the camera rises to look over. */
+const COMFORT = 3;
+/** Extra pitch tried, in order, to clear something behind the adventurer. */
+const LIFTS = [0, 0.3, 0.6, 0.9];
 const PITCH = [0.02, 1.15] as const;
 const DISTANCE = [3, 14] as const;
 /** Radians per pixel dragged. */
@@ -39,6 +43,15 @@ const probe = new Vector3();
 
 const angleTo = (a: number, b: number) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
 
+/** How far the arm can reach from `from` along `dir` before the ground or a prop is in the way. */
+function reachAlong(from: Vector3, dir: Vector3, wanted: number) {
+  for (let t = 0.6; t <= wanted; t += 0.25) {
+    probe.copy(from).addScaledVector(dir, t);
+    if (probe.y < groundHeight(probe.x, probe.z) + CLEARANCE || insideCollider(probe, CLEARANCE)) return Math.max(0.8, t - 0.3);
+  }
+  return wanted;
+}
+
 /**
  * Third-person camera on a spring arm behind the adventurer. Drag to orbit,
  * wheel or pinch to zoom. The arm shortens instantly when a prop or the
@@ -48,6 +61,8 @@ const angleTo = (a: number, b: number) => Math.atan2(Math.sin(b - a), Math.cos(b
  */
 export function FollowCamera() {
   const length = useRef(orbit.distance);
+  // Extra pitch currently added to see over something, eased so the camera glides up and back.
+  const lift = useRef(0);
 
   useFrame(({ camera }, delta) => {
     const dt = Math.min(delta, 0.05);
@@ -87,20 +102,26 @@ export function FollowCamera() {
 
     // Opening: pulled out and up through the fog, settling behind the adventurer.
     const opening = 1 - easeOutCubic(narrative.intro);
-    const pitch = Math.min(PITCH[1], orbit.pitch + INTRO.pitch * opening);
     const reach = cam.aspect < 1 ? PORTRAIT_REACH : 1;
     const wanted = orbit.distance * reach * (1 + INTRO.distance * opening) * (interaction.shot ? SHOT.closer : 1);
-    arm.set(Math.sin(orbit.yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(orbit.yaw) * Math.cos(pitch));
+    const basePitch = orbit.pitch + INTRO.pitch * opening;
+    const armAt = (p: number) => {
+      const pitch = Math.min(PITCH[1], p);
+      return arm.set(Math.sin(orbit.yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(orbit.yaw) * Math.cos(pitch));
+    };
 
-    // Spring arm: walk out from the focus until something is in the way.
-    let allowed = wanted;
-    for (let t = 0.6; t <= wanted; t += 0.25) {
-      probe.copy(focus).addScaledVector(arm, t);
-      if (probe.y < groundHeight(probe.x, probe.z) + CLEARANCE || insideCollider(probe, CLEARANCE)) {
-        allowed = Math.max(0.8, t - 0.3);
+    // Spring arm: walk out from the focus until something is in the way. If that
+    // would bring the camera uncomfortably close, look over it from higher instead.
+    let chosenLift = LIFTS[LIFTS.length - 1]!;
+    for (const l of LIFTS) {
+      if (reachAlong(focus, armAt(basePitch + l), wanted) >= Math.min(wanted, COMFORT) || l === chosenLift) {
+        chosenLift = l;
         break;
       }
     }
+    lift.current = snap ? chosenLift : damp(lift.current, chosenLift, chosenLift > lift.current ? 6 : 1.5, dt);
+    armAt(basePitch + lift.current);
+    const allowed = reachAlong(focus, arm, wanted);
     length.current = snap || allowed < length.current ? allowed : damp(length.current, allowed, 3, dt);
 
     camera.position.copy(focus).addScaledVector(arm, length.current);

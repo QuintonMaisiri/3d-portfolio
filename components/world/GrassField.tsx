@@ -5,12 +5,16 @@ import { LITE_SHARE, useLite } from "@/lib/lite";
 import { BufferAttribute, BufferGeometry, Color, DoubleSide, MeshLambertMaterial } from "three";
 import { mulberry32, between } from "@/lib/random";
 import { groundHeight } from "@/lib/terrain";
+import { trailDistanceCached } from "@/lib/cameraPath";
 import type { RegionConfig } from "@/lib/types";
-import { windSway } from "@/lib/wind";
+import { grassSway } from "@/lib/wind";
 import { Scatter, type Placement } from "./Scatter";
 
-/** Grass bends from the root, most at the tip. */
-const GRASS_WIND = windSway(0, 0.3);
+/** Half-width of the worn trail kept free of grass (the terrain draws the trail itself). */
+const TRAIL_BARE = 1.1;
+
+/** Grass bends from the root, most at the tip, and parts round the adventurer. */
+const GRASS_WIND = grassSway(0, 0.3);
 
 /**
  * One tapered blade: five vertices, three triangles, darker at the root and
@@ -75,7 +79,8 @@ export function GrassField({
     while (items.length < target && attempts++ < target * 3) {
       const x = between(rng, area[0], area[1]);
       const z = between(rng, area[2], area[3]);
-      if (!keep(x, z)) continue;
+      // The worn trail stays bare.
+      if (!keep(x, z) || trailDistanceCached(region.center[0] + x, region.center[2] + z) < TRAIL_BARE) continue;
       const h = between(rng, 0.7, 1.5);
       items.push({
         position: [x, groundHeight(region.center[0] + x, region.center[2] + z) - 0.03, z],
