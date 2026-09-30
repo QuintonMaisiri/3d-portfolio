@@ -49,6 +49,8 @@ interface CodexState {
   fading: boolean;
   /** Explore mode: the narration line shown during a travel scene, if any. */
   travelCaption: string | null;
+  /** Explore mode: a brief note ("Page written: ..."), with a stamp so repeats show again. */
+  note: { text: string; at: number } | null;
 
   setRawProgress: (p: number) => void;
   setSmoothProgress: (p: number) => void;
@@ -69,6 +71,7 @@ interface CodexState {
   closeCodex: () => void;
   setFading: (fading: boolean) => void;
   setTravelCaption: (caption: string | null) => void;
+  showNote: (text: string | null) => void;
 }
 
 export const useCodex = create<CodexState>()((set, get) => ({
@@ -92,6 +95,7 @@ export const useCodex = create<CodexState>()((set, get) => ({
   codexPage: null,
   fading: false,
   travelCaption: null,
+  note: null,
 
   setRawProgress: (rawProgress) => set({ rawProgress }),
   setSmoothProgress: (smoothProgress) => set({ smoothProgress }),
@@ -132,6 +136,7 @@ export const useCodex = create<CodexState>()((set, get) => ({
   setFading: (fading) => {
     if (get().fading !== fading) set({ fading });
   },
+  showNote: (text) => set({ note: text ? { text, at: performance.now() } : null }),
   setTravelCaption: (travelCaption) => {
     if (get().travelCaption !== travelCaption) set({ travelCaption });
   },

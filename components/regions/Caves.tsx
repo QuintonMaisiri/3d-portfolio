@@ -118,6 +118,7 @@ export function Caves() {
   const sparks = useRef<Points>(null);
   const sporeCloud = useRef<Points>(null);
   const hover = useRef<number[]>(CRYSTALS.map(() => 0));
+  const harmony = useRef(0);
 
   useRegionFrame(region, ({ clock }, delta) => {
     const t = clock.elapsedTime;
@@ -125,6 +126,11 @@ export function Caves() {
     const hovered = useCodex.getState().hoveredQuoteId;
     const sp = sparks.current?.geometry.getAttribute("position") as BufferAttribute | undefined;
     const sc = sparks.current?.geometry.getAttribute("color") as BufferAttribute | undefined;
+
+    // Every crystal lit: the chamber harmonises, all of them pulsing as one.
+    const chord = CRYSTALS.every((_, i) => sceneBeat(region.index, i + 1) >= 1) ? 1 : 0;
+    harmony.current = ambient ? damp(harmony.current, chord, 0.7, delta) : chord;
+    const together = harmony.current * (ambient ? 0.5 + 0.5 * Math.sin(t * 2.2) : 0.6);
 
     CRYSTALS.forEach((cr, i) => {
       // Each crystal wakes as its quote builds into the panel (beat 0 is the
@@ -136,7 +142,7 @@ export function Caves() {
       const c = crystals.current[i];
       if (c) {
         const pulse = ambient ? 1 + Math.sin(t * 1.3 + i) * 0.08 : 1;
-        (c.material as MeshLambertMaterial).emissiveIntensity = (lerp(0.12, 0.85, glow) + h * 0.5) * pulse;
+        (c.material as MeshLambertMaterial).emissiveIntensity = (lerp(0.12, 0.85, glow) + h * 0.5 + together * 0.6) * pulse;
         const size = cr.size * lerp(0.85, 1, glow) * (1 + h * 0.06);
         c.scale.set(size * 0.7, size * 1.8, size * 0.7);
         if (ambient) c.rotation.y = t * 0.25 + i;
@@ -150,7 +156,7 @@ export function Caves() {
           const r = cr.size * (1.1 + 0.3 * Math.sin(k * 2.3));
           sp.setXYZ(n, cr.x + Math.cos(a) * r, ground(cr.x, cr.z) + cr.size * (1.2 + (k % 4) * 0.55), cr.z + Math.sin(a) * r);
           const twinkle = ambient ? 0.5 + 0.5 * Math.sin(t * 3 + k * 1.7 + i) : 0.8;
-          sparkColor.copy(accent).multiplyScalar(0.6 * glow * twinkle + 0.4 * h);
+          sparkColor.copy(accent).multiplyScalar(0.6 * glow * twinkle + 0.4 * h + 0.5 * together);
           sc.setXYZ(n, sparkColor.r, sparkColor.g, sparkColor.b);
         }
       }

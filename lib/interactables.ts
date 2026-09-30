@@ -18,6 +18,12 @@ export interface InteractableDef {
    * (then the world's reaction plays before the Codex opens).
    */
   use: () => { open: string | null; fresh: boolean };
+  /**
+   * Found by stepping close rather than pressing E: while `pending()` (it
+   * still holds an unwritten page) walking within `stepRadius` writes its
+   * pages at once, without stopping the adventurer; a note confirms it.
+   */
+  step?: { radius: number; pending: () => boolean; note: string };
 }
 
 const registry = new Map<string, InteractableDef>();
@@ -73,3 +79,14 @@ export function nearestInteractable(p: Vector3, heading: number) {
   }
   return best;
 }
+
+/** Calls `found` for every step-triggered thing the adventurer is standing within reach of that still holds an unwritten page. */
+export function stepTriggers(found: (def: InteractableDef) => void) {
+  for (const def of registry.values()) {
+    if (!def.step || !def.step.pending()) continue;
+    if (Math.hypot(def.position.x - stepFrom.x, def.position.z - stepFrom.z) <= def.step.radius) found(def);
+  }
+}
+
+/** Where step triggers are measured from (the adventurer's feet); set by the interaction system. */
+export const stepFrom = new Vector3();

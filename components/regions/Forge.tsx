@@ -214,7 +214,9 @@ export function Forge() {
       return;
     }
 
-    pool.current?.setHeat(0.5 + 0.5 * Math.sin(t * 0.9));
+    // A group being kindled makes the lava flare (a rise in progress is between 0 and 1).
+    const kindling = Math.max(0, ...rise.map((r) => (r > 0.01 && r < 0.99 ? Math.sin(Math.PI * r) : 0)));
+    pool.current?.setHeat(0.5 + 0.5 * Math.sin(t * 0.9) + 0.9 * kindling);
     if (crustGroup.current) crustGroup.current.rotation.y = t * 0.03;
 
     // Embers rise from the lava, drift, fade out and respawn.

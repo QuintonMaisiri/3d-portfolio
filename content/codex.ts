@@ -78,7 +78,7 @@ export const codexPages: CodexPage[] = [
     region: "peaks",
     item: i,
     title: titled(c.title, `The climb, ${["first", "second", "third", "fourth", "fifth"][i] ?? `number ${i + 1}`} peak`),
-    hint: "Look to the foot of each peak.",
+    hint: "Something is sleeping under the boulders at the foot of each peak.",
     beats: [i + 1],
   })),
   ...milestones.map<CodexPage>((m, i) => ({
@@ -87,7 +87,7 @@ export const codexPages: CodexPage[] = [
     region: "ruins",
     item: i,
     title: m.title,
-    hint: "Look to the tablets under the water.",
+    hint: "Wade out to the tablets under the water.",
     beats: [i + 1],
   })),
   ...testimonials.map<CodexPage>((t, i) => ({

@@ -11,6 +11,8 @@ import {
   interaction,
   nearestInteractable,
   registerInteractable,
+  stepFrom,
+  stepTriggers,
   type InteractableDef,
   type InteractAction,
 } from "@/lib/interactables";
@@ -94,6 +96,13 @@ export function InteractionSystem() {
       else if (!player.target) interaction.pending = null;
     }
 
+    // Things found by stepping close: written the moment the adventurer reaches them, no stopping.
+    stepFrom.copy(player.position);
+    stepTriggers((def) => {
+      def.use();
+      store.showNote(def.step!.note);
+    });
+
     const near = nearestInteractable(player.position, player.heading);
     interaction.focused = near;
     store.setPrompt(near ? { id: near.id, text: near.prompt } : null);
@@ -122,6 +131,7 @@ export function Interactable({
   markerHeight = 1.8,
   color = "#fff1c4",
   onUse,
+  step,
 }: {
   id: string;
   region: RegionConfig;
@@ -136,6 +146,8 @@ export function Interactable({
   markerHeight?: number;
   color?: string;
   onUse?: () => void;
+  /** Found by stepping within this radius (no E); the note names what was written. */
+  step?: { radius: number; note: string };
 }) {
   const exploring = useCodex((s) => s.viewMode === "explore");
   const material = useRef<PointsMaterial>(null);
@@ -149,6 +161,8 @@ export function Interactable({
 
   const [x, y, z] = position;
   const pageKey = pages.join("|");
+  const stepRadius = step?.radius;
+  const stepNote = step?.note;
   useEffect(() => {
     if (!exploring) return;
     const list = pageKey.split("|");
@@ -163,8 +177,12 @@ export function Interactable({
         const fresh = useDiscoveries.getState().discover(list);
         return { open: list[0] ?? null, fresh: fresh.length > 0 };
       },
+      step:
+        stepRadius && stepNote
+          ? { radius: stepRadius, note: stepNote, pending: () => list.some((p) => !isFound(p)) }
+          : undefined,
     });
-  }, [exploring, id, region, x, y, z, radius, prompt, action, markerHeight, pageKey, onUse]);
+  }, [exploring, id, region, x, y, z, radius, prompt, action, markerHeight, pageKey, onUse, stepRadius, stepNote]);
 
   useFrame(({ clock }) => {
     const m = material.current;

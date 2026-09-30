@@ -13,6 +13,8 @@ import {
   Beacon,
   BEACON_SIZE,
   Bolt,
+  BugRock,
+  type BugRockHandle,
   ClimbMarkers,
   Clouds,
   Mountain,
@@ -25,6 +27,7 @@ import {
 } from "./models/peaks";
 import { Interactable } from "@/components/world/explore/Interaction";
 import { useRegionMounted } from "@/lib/streaming";
+import { useDiscoveries } from "@/lib/discoveries";
 import { ambientMotion, groundAt, RegionSlot, scatter, useRegionFrame } from "./shared";
 
 const region = regionById.peaks;
@@ -136,6 +139,8 @@ export function Peaks() {
   );
 
   const beacons = useRef<(Points | null)[]>([]);
+  const bugs = useRef<(BugRockHandle | null)[]>([]);
+  const found = useDiscoveries((s) => s.found);
   const markers = useRef<Points>(null);
   const cloudMesh = useRef<InstancedMesh>(null);
   const snowPoints = useRef<Points>(null);
@@ -173,6 +178,8 @@ export function Peaks() {
       });
       color.needsUpdate = true;
     }
+    // Each case's bug, under the boulder at the foot of its trail, wakes as the case is found.
+    bugs.current.forEach((bug, p) => bug?.setFound(beat[p]!));
     beacons.current.forEach((b, p) => {
       if (!b) return;
       const lit = easeOutCubic(smoothstep(CLIMB_SHARE - 0.05, 1, beat[p]!));
@@ -259,17 +266,27 @@ export function Peaks() {
         const out = Math.atan2(foot.x - peak.x, foot.z - peak.z);
         const x = foot.x + Math.sin(out) * 1.4;
         const z = foot.z + Math.cos(out) * 1.4;
+        const page = `problem:${peak.id}`;
         return (
-          <Interactable
-            key={`use-${peak.id}`}
-            id={`peaks:${peak.id}`}
-            region={region}
-            position={[x, ground(x, z), z]}
-            pages={[`problem:${peak.id}`]}
-            prompt="Start the climb"
-            markerHeight={1.6}
-            color={region.palette.accent}
-          />
+          <group key={`use-${peak.id}`}>
+            <BugRock
+              ref={(el) => {
+                bugs.current[p] = el;
+              }}
+              position={[x, ground(x, z), z]}
+              out={out}
+            />
+            <Interactable
+              id={`peaks:${peak.id}`}
+              region={region}
+              position={[x, ground(x, z), z]}
+              pages={[page]}
+              prompt={found.includes(page) ? "Read about this bug" : "Lift the boulder"}
+              action="pickup"
+              markerHeight={1.6}
+              color={region.palette.accent}
+            />
+          </group>
         );
       })}
       <MountainRange items={range} />

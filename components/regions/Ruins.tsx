@@ -24,6 +24,7 @@ import {
 } from "./models/ruins";
 import { clearOfCamera } from "@/lib/cameraPath";
 import { registerSurface } from "@/lib/surfaces";
+import { useDiscoveries } from "@/lib/discoveries";
 import { Interactable } from "@/components/world/explore/Interaction";
 import { useRegionMounted } from "@/lib/streaming";
 import { ambientMotion, RegionSlot, useRegionFrame } from "./shared";
@@ -60,6 +61,7 @@ const stoneOn = new Color(region.palette.accent).multiplyScalar(0.8);
 const tint = new Color();
 
 export function Ruins() {
+  const found = useDiscoveries((s) => s.found);
   const columns = useMemo(() => {
     const rng = mulberry32(601);
     return Array.from({ length: 22 }, () => {
@@ -181,14 +183,16 @@ export function Ruins() {
       <BrokenArch position={[8, WATER_Y - 1.2, -16]} rotation={[0, -0.4, 0]} />
       <SunkenSteps position={[-3.5, WATER_Y + 0.2, 3]} rotation={[0, 0.5, 0]} />
       <Causeway ref={causeway} count={CAUSEWAY.length} />
-      {TABLETS.map((tab) => (
+      {TABLETS.map((tab, i) => (
+        // Wade up to a tablet and it rises: the page is written as you arrive (no button).
         <Interactable
           key={`use-${tab.id}`}
           id={`ruins:${tab.id}`}
           region={region}
           position={[tab.x + 1.3, WATER_Y, tab.z + 1]}
           pages={[`milestone:${tab.id}`]}
-          prompt="Raise the tablet"
+          prompt={found.includes(`milestone:${tab.id}`) ? `Read ${milestones[i]!.title}` : "Raise the tablet"}
+          step={{ radius: 2.2, note: `Page written: ${milestones[i]!.title}` }}
           markerHeight={2.2}
           color={region.palette.accent}
         />

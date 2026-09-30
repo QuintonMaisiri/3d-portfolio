@@ -10,6 +10,8 @@ import type { RegionId } from "@/lib/types";
 
 /** How long a region's title card stays up on arrival, ms. */
 const TITLE_MS = 2600;
+/** How long a "Page written" note stays up, ms. */
+const NOTE_MS = 3800;
 
 const typing = (target: EventTarget | null) =>
   target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
@@ -28,6 +30,9 @@ export function ExploreHud() {
   const codexOpen = useCodex((s) => s.codexOpen);
   const fading = useCodex((s) => s.fading);
   const caption = useCodex((s) => s.travelCaption);
+  const note = useCodex((s) => s.note);
+  // The note whose time is up; a newer note shows again.
+  const [noteDone, setNoteDone] = useState(0);
   // Keep the last line on screen while it fades out.
   const [lastCaption, setLastCaption] = useState<string | null>(null);
   if (caption && caption !== lastCaption) setLastCaption(caption);
@@ -59,6 +64,12 @@ export function ExploreHud() {
     const timer = window.setTimeout(() => setTitleDone(active), TITLE_MS);
     return () => window.clearTimeout(timer);
   }, [active]);
+
+  useEffect(() => {
+    if (!note) return;
+    const timer = window.setTimeout(() => setNoteDone(note.at), NOTE_MS);
+    return () => window.clearTimeout(timer);
+  }, [note]);
 
   // C opens the Codex (Escape closes it: it's a native dialog).
   useEffect(() => {
@@ -104,6 +115,16 @@ export function ExploreHud() {
       >
         {lastCaption ?? ""}
       </p>
+
+      {/* A page written without opening the Codex (stepping onto something). Announced politely. */}
+      <div aria-live="polite" className="absolute inset-x-0 top-24 flex justify-center px-4">
+        {note && note.at !== noteDone ? (
+          <p key={note.at} className={`${pill} px-4 py-2 text-sm`}>
+            <span className="font-semibold">{note.text}</span>
+            <span className="text-[#cbc5b6]"> &middot; {touch ? "open the Codex to read it" : "press C to read it"}</span>
+          </p>
+        ) : null}
+      </div>
 
       {/* What's in reach. A real button, so taps and screen readers can use it too. */}
       {prompt && !codexOpen ? (
