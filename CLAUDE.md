@@ -113,6 +113,13 @@ Where content is missing (project write-ups, problem-solving case studies, testi
 - **Sound button in the HUD** is now labelled ("Sound on/off", M) beside the Codex button (`SoundToggle` in MusicControl.tsx, shared with the intro). Below 1024 px the controls hint sits above the buttons.
 - Tests (scratchpad): `exintro.mjs <fresh-dir>` (intro blocks keys, sound toggle, begin, walking after, fits 1440x900 and 1366x768, phone, read as a page). **Use a new output folder name**: reusing an old folder reuses its Chrome profile and saved pages. `axe-v2.mjs` audits the intro (desktop and phone) and clicks Begin; `exbook3d.mjs` clicks Begin.
 
+### Forest: nine projects (2026-10-01)
+- Quinton added Facilite, Mutai Employment Agency and Wardrobe Worth from the CV (not Maintenance Dispatch, which is problem-solving case 1). Content comes only from the CV; problems/results it doesn't give stay TODO. Facilite's result "Serves more than 1,000 users a month" and Mutai's "Improved response times" are the CV's own claims.
+- `PROJECT_ROWS` in Forest.tsx has a third row (1.8, -13.5), (6, -14), (9.8, -13.5) between the second row's trees. Woodland keeps 2.6 and undergrowth (which includes rocks up to about 3 across) 2.4 clear of every chest: a rock had landed on Mutai's chest.
+- The journey Projects list is grouped by context (a shared role goes in the group heading), so nine rows fit 1440x900 and 1366x768 without scrolling. Rows keep `data-beat` in content order, so each tree still lights with its row.
+- The Codex now has 29 pages.
+- Tests (scratchpad): `forest9.mjs` (every chest registered, prompt in reach, approach clear), `forest9-near.mjs` (solids near each chest), `journeyforest.mjs` (panel overflow), `axe-journey.mjs`.
+
 ### The Codex as a book (after V2.11, at Quinton's request: "open like an actual book with pages flipping ... a thick journal")
 - **The model** (2026-10-01, Quinton supplied it after my procedural book "doesn't open right"): "FREE Simple Opening Book" by Cecile Amstad (Sketchfab, **CC-BY-4.0**, credited in `content/credits.ts`), built by `npm run models -- codex-book` to `public/models/props/codex-book.glb` (189 KB; `MODELS.props2.codexBook`). Red leather with a contour-map pattern; one page block on the right only; the front cover is skinned to a single animated joint, `_Under_book_010`. The one clip ("Take 001") swings the cover open by about 4.9 s, but only to about 169 degrees. Authored in cm.
 - `components/codex/BookScene.tsx` (its own small `<Canvas>` in the full-screen dialog). `fitBook()` reads the model once:
@@ -232,14 +239,13 @@ Where content is missing (project write-ups, problem-solving case studies, testi
 
 ### Open TODOs (content)
 Placeholders render visibly as `[TODO: ...]`. Edit in `content/`:
-- `projects.ts`: UncommonOS and Program Pulse summaries; problem and result for all six; stack for the Uncommon products.
+- `projects.ts` (9 projects since 2026-10-01): UncommonOS and Program Pulse summaries; problem and result for the five Uncommon products and BioDive; stack for the Uncommon products; problems for Facilite and Mutai; Wardrobe Worth's context (freelance or own product), problem and result. Facilite and Mutai are marked Freelance (Mutai matches the About text's "local recruiters"; Facilite assumed, Quinton to confirm).
 - `problems.ts`: 3 cases drafted from the CV on 2026-10-01 (Maintenance Dispatch sign-in across two origins, EcoCash/Paynow payments, the legacy front-end refactor). Outcomes for cases 1 and 2 are still TODO (the CV gives none); case 3's outcome is the CV's 15%. Quinton to confirm the wording.
 - `testimonials.ts`: real quotes with name and relationship.
 - `skills.ts`: AI/LLM integration has no supporting detail yet.
 
 ### Deferred decisions (Quinton: "fix later")
-- Which projects go in the Forest (add the CV's extra projects?).
-- Which links are public (uncommon.org sites, biodiveuae.org, wardrobe-worth.com, facilite.cc, repos).
+- Public links: decided 2026-10-01: biodiveuae.org and wardrobe-worth.com only (not the uncommon.org sites or facilite.cc).
 - Phone number on site (default: no). "Download CV" link. Final domain (needed for metadataBase and OG).
 
 ### Done in Phase 1

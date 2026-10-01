@@ -197,7 +197,7 @@ const SCROLL_RISE = [0.35, 1.5] as const;
 /** The chest at a project tree's roots (Fantasy Props MegaKit, rigged with Chest_Open). */
 const ChestModel = forwardRef<ProjectChestHandle, GroupProps & { glow: string }>(function ChestModel({ glow, ...props }, ref) {
   const { scene, animations } = useGLTF(CHEST_URL, DRACO_PATH);
-  // Six chests share one file: each needs its own skeleton.
+  // The chests share one file: each needs its own skeleton.
   const copy = useMemo(() => {
     const c = cloneSkinned(scene);
     c.traverse((o) => {
