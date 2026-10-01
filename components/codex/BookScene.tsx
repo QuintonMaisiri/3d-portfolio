@@ -1,33 +1,46 @@
 "use client";
 
-import { useTexture } from "@react-three/drei";
+import { useGLTF, useTexture } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import {
   BoxGeometry,
   CanvasTexture,
-  CylinderGeometry,
   DoubleSide,
+  Matrix4,
+  Mesh,
   MeshBasicMaterial,
   MeshLambertMaterial,
   PlaneGeometry,
-  RepeatWrapping,
+  Quaternion,
+  QuaternionLinearInterpolant,
   SRGBColorSpace,
   Vector3,
+  type AnimationClip,
   type BufferAttribute,
   type Group,
-  type Mesh,
+  type Object3D,
   type PerspectiveCamera,
+  type SkinnedMesh,
   type Texture,
 } from "three";
+import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
+import { DRACO_PATH } from "@/lib/assets";
+import { MODELS } from "@/lib/models";
 
 /**
- * The Codex as a real 3D journal: a leather back cover, a thick page block,
- * a spine, and a front cover that swings open on the spine carrying the left
- * half of the pages with it. The book lies in the XY plane, pages facing +z,
- * the spine along y at x = 0. Shut, it's the right half (x 0..W) stacked;
- * open, the left half has turned over to x -W..0. Page turns bend a finely
- * divided sheet round the spine, the part nearest the spine going first.
+ * The Codex as a real 3D journal: "FREE Simple Opening Book" by Cecile Amstad
+ * (CC-BY-4.0, credited in content/credits.ts). Its front cover is skinned to
+ * one hinge joint, and its one clip swings the cover open. The book is turned
+ * to lie in the XY plane, pages facing +z, the spine along y at x = 0, and
+ * scaled so a page is 1 wide.
+ *
+ * Fitted to the Codex: the hinge follows the clip's own easing but is scaled
+ * to lie flat at 180 degrees (the clip stops at about 169, which tilts the
+ * left page); a sheet of pages rides on the inside of the cover (the model has
+ * pages on the right only); the title is tooled onto the cover. Page turns
+ * bend a finely divided sheet round the spine, the part nearest the spine
+ * going first.
  *
  * The HTML pages are laid over the page surfaces (reported by onLayout) and
  * shown only while the book lies flat; the page tops are unlit and use the
@@ -35,17 +48,20 @@ import {
  * was designed for.
  */
 
-/** Page width and height, one half's thickness of pages, cover thickness and overhang (world units). */
-const W = 1;
-const H = 1.36;
-const T = 0.12;
-const C = 0.03;
-const OV = 0.075;
 /** Seconds to open, close and turn a page (Codex.tsx waits on the callbacks, not these). */
-const OPEN_S = 1.25;
-const CLOSE_S = 0.85;
+const OPEN_S = 1.6;
+const CLOSE_S = 1.05;
 const TURN_S = 0.95;
 const FOV = 28;
+/** The clip has the cover lying open (and still) from here on. */
+const CLIP_OPEN_AT = 4.9;
+const HINGE = "_Under_book_010";
+/** Thickness of the sheet of pages on the inside of the cover. */
+const SHEET = 0.02;
+/** Turn progress at which the fore-edge has passed the spine (the curl: t * 1.45 - 0.45 >= 0.5 at the edge, plus a margin). */
+const CROSSED_AT = 0.72;
+/** The turning page: finely divided so it can bend. */
+const LEAF_SEGMENTS = 40;
 
 export type BookPhase = "closed" | "opening" | "open" | "closing";
 
@@ -54,6 +70,13 @@ export interface PageRect {
   top: number;
   width: number;
   height: number;
+}
+
+interface Rect3 {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
 }
 
 const smooth = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
@@ -101,7 +124,7 @@ function writtenPage(paper: HTMLImageElement) {
   return base;
 }
 
-/** Page edges: fine stacked lines, for the sides of the page blocks. */
+/** Page edges: fine stacked lines, for the sides of the sheet of pages. */
 function pageEdges() {
   const canvas = document.createElement("canvas");
   canvas.width = 64;
@@ -115,94 +138,172 @@ function pageEdges() {
   return canvas;
 }
 
-/** The front cover's outside: leather, a tooled gold border, an emblem, the title and the author. */
-function coverFace(leather: HTMLImageElement, title: string, author: string, fontFamily: string) {
+/** The cover's tooling, on a transparent sheet over the model's leather: gold border, compass, title and author. */
+function coverTooling(title: string, author: string, fontFamily: string, aspect: number) {
   const w = 700;
-  const h = Math.round((w * (H + 2 * OV)) / (W + OV));
+  const h = Math.round(w * aspect);
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d")!;
-  const pattern = ctx.createPattern(leather, "repeat");
-  ctx.fillStyle = pattern ?? "#3c2e2c";
-  ctx.fillRect(0, 0, w, h);
-  // Darken toward the spine (left) and edges, like worn leather.
-  const shade = ctx.createLinearGradient(0, 0, w, 0);
-  shade.addColorStop(0, "rgba(0,0,0,0.45)");
-  shade.addColorStop(0.12, "rgba(0,0,0,0.05)");
-  shade.addColorStop(1, "rgba(0,0,0,0.2)");
-  ctx.fillStyle = shade;
-  ctx.fillRect(0, 0, w, h);
-  const gold = "#d9a846";
+  const gold = "#e2b354";
   ctx.strokeStyle = gold;
-  ctx.globalAlpha = 0.75;
-  ctx.lineWidth = 3;
-  ctx.strokeRect(46, 40, w - 86, h - 80);
-  ctx.globalAlpha = 0.4;
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(60, 54, w - 114, h - 108);
+  ctx.shadowColor = "rgba(40,10,0,0.7)";
+  ctx.shadowOffsetY = 2;
+  ctx.shadowBlur = 3;
+  ctx.globalAlpha = 0.85;
+  ctx.lineWidth = 4;
+  ctx.strokeRect(40, 40, w - 80, h - 80);
+  ctx.globalAlpha = 0.5;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(56, 56, w - 112, h - 112);
   ctx.globalAlpha = 1;
   // Emblem: a compass rose.
   const cx = w / 2;
-  const cy = h * 0.38;
-  ctx.lineWidth = 3;
+  const cy = h * 0.34;
+  ctx.lineWidth = 4;
   ctx.beginPath();
-  ctx.arc(cx, cy, 44, 0, Math.PI * 2);
+  ctx.arc(cx, cy, 54, 0, Math.PI * 2);
   ctx.stroke();
   ctx.beginPath();
-  ctx.moveTo(cx, cy - 64);
-  ctx.lineTo(cx + 12, cy);
-  ctx.lineTo(cx, cy + 64);
-  ctx.lineTo(cx - 12, cy);
+  ctx.moveTo(cx, cy - 80);
+  ctx.lineTo(cx + 15, cy);
+  ctx.lineTo(cx, cy + 80);
+  ctx.lineTo(cx - 15, cy);
   ctx.closePath();
   ctx.stroke();
   ctx.fillStyle = gold;
   ctx.textAlign = "center";
-  ctx.shadowColor = "rgba(0,0,0,0.6)";
-  ctx.shadowOffsetY = 2;
-  ctx.shadowBlur = 2;
-  ctx.font = `600 58px ${fontFamily}`;
+  ctx.font = `600 66px ${fontFamily}`;
   const words = title.split(" ");
   const mid = Math.ceil(words.length / 2);
-  ctx.fillText(words.slice(0, mid).join(" "), cx, h * 0.56);
-  ctx.fillText(words.slice(mid).join(" "), cx, h * 0.56 + 70);
-  ctx.font = `600 22px ${fontFamily}`;
-  ctx.fillText(author.toUpperCase().split("").join(String.fromCharCode(8202)), cx, h * 0.56 + 140);
+  ctx.fillText(words.slice(0, mid).join(" "), cx, h * 0.55);
+  ctx.fillText(words.slice(mid).join(" "), cx, h * 0.55 + 80);
+  ctx.font = `600 24px ${fontFamily}`;
+  ctx.fillText(author.toUpperCase().split("").join(String.fromCharCode(8202)), cx, h * 0.55 + 160);
   return canvas;
 }
 
-/** Inside the cover: a darker endpaper. */
-function endpaper(paper: HTMLImageElement) {
-  const base = washedPaper(paper);
-  const ctx = base.getContext("2d")!;
-  ctx.fillStyle = "rgba(120, 80, 40, 0.18)";
-  ctx.fillRect(0, 0, base.width, base.height);
-  return base;
-}
-
-/** The fold between the pages: shadow deepest at the spine, fading across each page. */
+/** The fold beside the spine: shadow deepest at the spine (left edge), fading across the page. */
 function gutter() {
   const canvas = document.createElement("canvas");
-  canvas.width = 256;
+  canvas.width = 128;
   canvas.height = 4;
   const ctx = canvas.getContext("2d")!;
-  const g = ctx.createLinearGradient(0, 0, 256, 0);
-  g.addColorStop(0, "rgba(60,38,16,0)");
-  g.addColorStop(0.38, "rgba(60,38,16,0.12)");
-  g.addColorStop(0.47, "rgba(50,30,12,0.3)");
-  g.addColorStop(0.5, "rgba(40,24,10,0.42)");
-  g.addColorStop(0.53, "rgba(50,30,12,0.3)");
-  g.addColorStop(0.62, "rgba(60,38,16,0.12)");
+  const g = ctx.createLinearGradient(0, 0, 128, 0);
+  g.addColorStop(0, "rgba(40,24,10,0.45)");
+  g.addColorStop(0.12, "rgba(50,30,12,0.3)");
+  g.addColorStop(0.5, "rgba(60,38,16,0.1)");
   g.addColorStop(1, "rgba(60,38,16,0)");
   ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 256, 4);
+  ctx.fillRect(0, 0, 128, 4);
   return canvas;
 }
 
-/** The turning page: a sheet from the spine (x = 0) to the fore-edge, finely divided so it can bend. */
-const LEAF_SEGMENTS = 40;
-/** Turn progress at which the fore-edge has passed the spine (the curl: t * 1.45 - 0.45 >= 0.5 at the edge, plus a margin). */
-const CROSSED_AT = 0.72;
+/**
+ * Reads the model once: fits it to the scene frame, measures its pages and
+ * covers, and turns the clip's hinge rotation into an easing curve.
+ */
+function fitBook(scene: Object3D, clip: AnimationClip) {
+  scene.updateMatrixWorld(true);
+  let cover: SkinnedMesh | undefined;
+  let pages: Mesh | undefined;
+  let hinge: Object3D | undefined;
+  scene.traverse((o) => {
+    if ((o as SkinnedMesh).isSkinnedMesh) cover = o as SkinnedMesh;
+    else if ((o as Mesh).isMesh) pages = o as Mesh;
+    if (o.name === HINGE) hinge = o;
+  });
+  if (!cover || !pages || !hinge) throw new Error("Codex book: unexpected model structure");
+  const joint = hinge;
+  const skin = cover;
+
+  // The hinge's rotation over the clip, as a fraction of its full swing.
+  const track = clip.tracks.find((t) => t.name === `${HINGE}.quaternion`);
+  if (!track) throw new Error("Codex book: no hinge track");
+  const interp = new QuaternionLinearInterpolant(track.times, track.values, 4, new Float32Array(4));
+  // Sampled in order, each kept on the same hemisphere as the last (the keys flip sign partway through).
+  const samples: Quaternion[] = [];
+  for (let i = 0; i <= 64; i++) {
+    const v = interp.evaluate((i / 64) * CLIP_OPEN_AT);
+    const q = new Quaternion(v[0], v[1], v[2], v[3]).normalize();
+    const prev = samples[i - 1];
+    if (prev && prev.dot(q) < 0) q.set(-q.x, -q.y, -q.z, -q.w);
+    samples.push(q);
+  }
+  const closedQ = samples[0]!.clone();
+  const inv = closedQ.clone().invert();
+  const rel = samples.map((q) => inv.clone().multiply(q));
+  const endRel = rel[64]!;
+  const axis = new Vector3(endRel.x, endRel.y, endRel.z).normalize();
+  const angleOf = (q: Quaternion) => 2 * Math.atan2(new Vector3(q.x, q.y, q.z).dot(axis), q.w);
+  const endAngle = angleOf(endRel);
+  const curve = rel.map((q) => clamp01(angleOf(q) / endAngle));
+  curve[64] = 1;
+  /** Clip-shaped swing for linear progress p: 0 shut, 1 lying flat open. */
+  const swing = (p: number) => {
+    const x = clamp01(p) * 64;
+    const i = Math.min(63, Math.floor(x));
+    return curve[i]! + (curve[i + 1]! - curve[i]!) * (x - i);
+  };
+  /** The hinge's rotation, `open` of the way to 180 degrees. */
+  const hingeQ = (open: number, out: Quaternion) => out.setFromAxisAngle(axis, Math.PI * open).premultiply(closedQ);
+
+  // Fit: model (x, y up, z along the spine) to scene (x, y along the spine, z up), spine at x = 0, page top at z = 0.
+  hingeQ(0, joint.quaternion);
+  scene.updateMatrixWorld(true);
+  const geometry = pages.geometry;
+  if (!geometry.boundingBox) geometry.computeBoundingBox();
+  const pb = geometry.boundingBox!.clone().applyMatrix4(pages.matrixWorld);
+  const pivot = new Vector3().setFromMatrixPosition(joint.matrixWorld);
+  const scale = 1 / (pb.max.x - pb.min.x);
+  const fit = new Matrix4()
+    .makeScale(scale, scale, scale)
+    .multiply(new Matrix4().makeRotationX(Math.PI / 2))
+    .multiply(new Matrix4().makeTranslation(-pivot.x, -pb.max.y, 0));
+
+  // The skinned cover's vertices in scene space, in a pose.
+  const v = new Vector3();
+  const pose = (open: number) => {
+    hingeQ(open, joint.quaternion);
+    scene.updateMatrixWorld(true);
+    skin.skeleton.update();
+  };
+  const sample = (open: number, keep: (p: Vector3) => void) => {
+    pose(open);
+    const toScene = fit.clone().multiply(skin.matrixWorld);
+    const n = skin.geometry.attributes.position!.count;
+    for (let i = 0; i < n; i++) keep(skin.getVertexPosition(i, v).applyMatrix4(toScene));
+  };
+  const closed = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity, top: -Infinity };
+  sample(0, (p) => {
+    closed.x0 = Math.min(closed.x0, p.x);
+    closed.x1 = Math.max(closed.x1, p.x);
+    closed.y0 = Math.min(closed.y0, p.y);
+    closed.y1 = Math.max(closed.y1, p.y);
+    if (p.x > 0.15) closed.top = Math.max(closed.top, p.z);
+  });
+  let inside = -Infinity;
+  sample(1, (p) => {
+    if (p.x < -0.15 && p.x > -0.9) inside = Math.max(inside, p.z);
+  });
+
+  const a = pb.min.clone().applyMatrix4(fit);
+  const b = pb.max.clone().applyMatrix4(fit);
+  const right: Rect3 = { x0: Math.min(a.x, b.x), x1: Math.max(a.x, b.x), y0: Math.min(a.y, b.y), y1: Math.max(a.y, b.y) };
+  const left: Rect3 = { x0: -right.x1, x1: -right.x0, y0: right.y0, y1: right.y1 };
+  const leftTop = inside + 0.002 + SHEET;
+
+  /** Hangs a child on the hinge so it sits at `world` (scene space) when the cover is `open` (0 shut, 1 open). */
+  const attach = (child: Object3D, world: Matrix4, open: number) => {
+    pose(open);
+    const local = new Matrix4().copy(joint.matrixWorld).invert().multiply(fit.clone().invert()).multiply(world);
+    local.decompose(child.position, child.quaternion, child.scale);
+    joint.add(child);
+  };
+  pose(0);
+  return { fit, hinge: joint, cover: skin, pages, hingeQ, swing, right, left, leftTop, closed, attach };
+}
 
 export function BookScene({
   phase,
@@ -215,7 +316,10 @@ export function BookScene({
   onTurn,
   onLayout,
   instant = false,
+  scrub,
 }: {
+  /** Dev lab only: hold the cover at this opening progress (0 shut, 1 open). */
+  scrub?: number;
   /** Reduced motion: jump straight to open or shut, and don't animate page turns. */
   instant?: boolean;
   phase: BookPhase;
@@ -231,67 +335,104 @@ export function BookScene({
   onTurn: (stage: "crossed" | "done") => void;
   onLayout: (rects: { left: PageRect; right: PageRect }) => void;
 }) {
-  const [paperTex, leatherTex] = useTexture(["/codex/paper.webp", "/codex/leather.webp"]) as [Texture, Texture];
+  const paperTex = useTexture("/codex/paper.webp") as Texture;
+  const gltf = useGLTF(MODELS.props2.codexBook, DRACO_PATH);
   const size = useThree((s) => s.size);
   const get = useThree((s) => s.get);
 
   const root = useRef<Group>(null);
-  const hinge = useRef<Group>(null);
-  const spine = useRef<Mesh>(null);
-  const fold = useRef<Mesh>(null);
+  const fold = useRef<Group>(null);
   const leaf = useRef<Mesh>(null);
   const progress = useRef(phase === "open" ? 1 : 0);
   const turn = useRef({ t: 1, id: turnId, crossed: true, done: true });
   const reported = useRef<"opened" | "closed" | null>(null);
 
-  // Canvas-drawn textures, made once the images have loaded.
+  // Canvas-drawn textures, made once the paper has loaded.
   const textures = useMemo(() => {
     const paper = paperTex.image as HTMLImageElement;
-    const leather = leatherTex.image as HTMLImageElement;
-    const probe = document.querySelector(".font-display");
-    const fontFamily = probe ? getComputedStyle(probe).fontFamily : "serif";
-    const leatherRepeat = leatherTex.clone();
-    leatherRepeat.wrapS = leatherRepeat.wrapT = RepeatWrapping;
-    leatherRepeat.repeat.set(2, 2.6);
-    leatherRepeat.colorSpace = SRGBColorSpace;
-    leatherRepeat.needsUpdate = true;
     return {
       page: toTexture(washedPaper(paper)),
       written: toTexture(writtenPage(paper)),
       edges: toTexture(pageEdges()),
-      cover: toTexture(coverFace(leather, title, author, fontFamily)),
-      endpaper: toTexture(endpaper(paper)),
       gutter: toTexture(gutter()),
-      leather: leatherRepeat,
     };
-  }, [paperTex, leatherTex, title, author]);
+  }, [paperTex]);
   useEffect(() => () => Object.values(textures).forEach((t) => t.dispose()), [textures]);
 
-  const materials = useMemo(() => {
-    const leather = new MeshLambertMaterial({ map: textures.leather, color: "#e2d0c8" });
-    const edges = new MeshLambertMaterial({ map: textures.edges });
-    // Page tops are unlit, so the HTML laid over them sits on exactly its designed colour.
+  // The model, fitted and dressed: its own clone, so remounting the Codex starts clean.
+  const book = useMemo(() => {
+    const scene = cloneSkinned(gltf.scene);
+    const clip = gltf.animations[0];
+    if (!clip) throw new Error("Codex book: no clip");
+    const fitted = fitBook(scene, clip);
+    const probe = document.querySelector(".font-display");
+    const fontFamily = probe ? getComputedStyle(probe).fontFamily : "serif";
+
+    const leatherMap = (fitted.cover.material as MeshLambertMaterial).map ?? null;
+    const leather = new MeshLambertMaterial({ map: leatherMap, color: "#d8c4bc" });
+    const block = new MeshLambertMaterial({ color: "#dcc59c" });
     const page = new MeshBasicMaterial({ map: textures.page, toneMapped: false });
-    const cover = new MeshLambertMaterial({ map: textures.cover, color: "#f0e2da" });
-    const inside = new MeshLambertMaterial({ map: textures.endpaper });
+    const edges = new MeshLambertMaterial({ map: textures.edges });
+    const coverX0 = Math.max(0, fitted.closed.x0);
+    const toolW = fitted.closed.x1 - coverX0 - 0.08;
+    const toolH = fitted.closed.y1 - fitted.closed.y0 - 0.08;
+    const toolingTex = toTexture(coverTooling(title, author, fontFamily, toolH / toolW));
+    const tooling = new MeshBasicMaterial({ map: toolingTex, transparent: true, toneMapped: false, depthWrite: false });
+    fitted.cover.material = leather;
+    fitted.pages.material = block;
+    fitted.cover.frustumCulled = false;
+
+    const geometries = {
+      top: new PlaneGeometry(fitted.right.x1 - fitted.right.x0, fitted.right.y1 - fitted.right.y0),
+      sheet: new BoxGeometry(fitted.left.x1 - fitted.left.x0, fitted.left.y1 - fitted.left.y0, SHEET),
+      tooling: new PlaneGeometry(toolW, toolH),
+    };
+
+    // The sheet of pages on the inside of the cover, its top level with the right-hand page when open.
+    const sheet = new Mesh(geometries.sheet, [edges, edges, edges, edges, page, block]);
+    const { left, closed } = fitted;
+    fitted.attach(sheet, new Matrix4().makeTranslation((left.x0 + left.x1) / 2, (left.y0 + left.y1) / 2, fitted.leftTop - SHEET / 2), 1);
+    // The tooling on the cover's outside, shut.
+    const tool = new Mesh(geometries.tooling, tooling);
+    fitted.attach(tool, new Matrix4().makeTranslation((coverX0 + closed.x1) / 2, (closed.y0 + closed.y1) / 2, closed.top + 0.003), 0);
+    fitted.hingeQ(0, fitted.hinge.quaternion);
+
+    return { scene, fitted, materials: { leather, block, page, edges, tooling }, geometries, toolingTex };
+  }, [gltf, textures, title, author]);
+  useEffect(
+    () => () => {
+      Object.values(book.materials).forEach((m) => m.dispose());
+      Object.values(book.geometries).forEach((g) => g.dispose());
+      book.toolingTex.dispose();
+    },
+    [book],
+  );
+
+  const { right, left, leftTop, closed } = book.fitted;
+  const pageW = right.x1 - right.x0;
+  const pageH = right.y1 - right.y0;
+  const pageCy = (right.y0 + right.y1) / 2;
+  const coverX1 = closed.x1;
+  const coverH = closed.y1 - closed.y0;
+  const coverCy = (closed.y0 + closed.y1) / 2;
+  const closedCx = (Math.max(0, closed.x0) + closed.x1) / 2;
+
+  const materials = useMemo(() => {
     const leafMat = new MeshBasicMaterial({ map: textures.written, side: DoubleSide, transparent: true, toneMapped: false });
     const ribbon = new MeshLambertMaterial({ color: "#6e2212", side: DoubleSide });
-    const fold = new MeshBasicMaterial({ map: textures.gutter, transparent: true, depthWrite: false, toneMapped: false });
-    return { leather, edges, page, cover, inside, leaf: leafMat, ribbon, fold };
+    const foldMat = new MeshBasicMaterial({ map: textures.gutter, transparent: true, depthWrite: false, toneMapped: false });
+    return { leaf: leafMat, ribbon, fold: foldMat };
   }, [textures]);
   useEffect(() => () => Object.values(materials).forEach((m) => m.dispose()), [materials]);
 
-  // Box face order: +x, -x, +y, -y, +z, -z.
   const geometries = useMemo(() => {
-    const block = new BoxGeometry(W, H, T);
-    const cover = new BoxGeometry(W + OV, H + 2 * OV, C);
-    const spine = new CylinderGeometry(T + C, T + C, H + 2 * OV, 20, 1, true, Math.PI, Math.PI);
-    const leafGeo = new PlaneGeometry(W, H, LEAF_SEGMENTS, 1);
-    leafGeo.translate(W / 2, 0, 0);
-    const ribbonGeo = new PlaneGeometry(0.02, H + 0.2);
-    const foldGeo = new PlaneGeometry(0.34, H);
-    return { block, cover, spine, leaf: leafGeo, ribbon: ribbonGeo, fold: foldGeo, leafRest: Float32Array.from(leafGeo.getAttribute("position").array) };
-  }, []);
+    const leafGeo = new PlaneGeometry(pageW, pageH, LEAF_SEGMENTS, 1);
+    leafGeo.translate(right.x0 + pageW / 2, pageCy, 0);
+    const ribbonGeo = new PlaneGeometry(0.02, pageH + 0.22);
+    const foldGeo = new PlaneGeometry(0.3, pageH);
+    foldGeo.translate(0.15, 0, 0);
+    return { leaf: leafGeo, ribbon: ribbonGeo, fold: foldGeo, leafRest: Float32Array.from(leafGeo.getAttribute("position").array) };
+  }, [pageW, pageH, pageCy, right.x0]);
   useEffect(
     () => () =>
       Object.values(geometries).forEach((g) => {
@@ -307,45 +448,43 @@ export function BookScene({
     cam.near = 0.05;
     cam.far = 50;
     const aspect = size.width / size.height;
-    // Room round the book, so the leather cover and the table show.
-    const needW = (narrow ? W + OV : 2 * (W + OV)) * (narrow ? 1.06 : 1.14);
-    const needH = (H + 2 * OV) * 1.12;
+    // Room round the book, so the leather cover shows.
+    const needW = narrow ? (coverX1 + 0.04) * 1.05 : 2 * coverX1 * 1.12;
+    const needH = coverH * (narrow ? 1.05 : 1.1);
     const tan = Math.tan((FOV * Math.PI) / 360);
     const dist = Math.max(needH / (2 * tan), needW / (2 * tan * aspect));
-    const cx = narrow ? W / 2 : 0;
-    cam.position.set(cx, 0, T + dist);
-    cam.lookAt(cx, 0, T);
+    const cx = narrow ? (coverX1 - 0.04) / 2 : 0;
+    cam.position.set(cx, coverCy, dist);
+    cam.lookAt(cx, coverCy, 0);
     cam.aspect = aspect;
     cam.updateProjectionMatrix();
     cam.updateMatrixWorld();
 
-    const project = (x: number, y: number) => {
-      const v = new Vector3(x, y, T + 0.001).project(cam);
-      return { x: ((v.x + 1) / 2) * size.width, y: ((1 - v.y) / 2) * size.height };
+    const project = (x: number, y: number, z: number) => {
+      const p = new Vector3(x, y, z).project(cam);
+      return { x: ((p.x + 1) / 2) * size.width, y: ((1 - p.y) / 2) * size.height };
     };
-    const rect = (x0: number, x1: number): PageRect => {
-      const a = project(x0, H / 2);
-      const b = project(x1, -H / 2);
+    const rect = (r: Rect3, z: number): PageRect => {
+      const a = project(r.x0, r.y1, z);
+      const b = project(r.x1, r.y0, z);
       return { left: a.x, top: a.y, width: b.x - a.x, height: b.y - a.y };
     };
-    onLayout({ left: rect(-W, 0), right: rect(0, W) });
-  }, [get, size.width, size.height, narrow, onLayout]);
+    onLayout({ left: rect(left, leftTop + 0.001), right: rect(right, 0.001) });
+  }, [get, size.width, size.height, narrow, onLayout, left, right, leftTop, coverX1, coverH, coverCy]);
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 1 / 20);
 
-    // Opening and closing.
+    // Opening and closing: the cover swings on the clip's curve.
     const target = phase === "opening" || phase === "open" ? 1 : 0;
     const rate = target > progress.current ? 1 / OPEN_S : 1 / CLOSE_S;
-    progress.current = instant ? target : clamp01(progress.current + Math.sign(target - progress.current) * rate * dt);
+    progress.current = scrub !== undefined ? scrub : instant ? target : clamp01(progress.current + Math.sign(target - progress.current) * rate * dt);
     const e = smooth(progress.current);
-    if (hinge.current) hinge.current.rotation.y = Math.PI * e;
-    // The spine rolls under the book as it opens (it wraps the left edge when shut).
-    if (spine.current) spine.current.rotation.y = -(Math.PI / 2) * e;
-    if (fold.current) fold.current.visible = e > 0.97;
+    book.fitted.hingeQ(book.fitted.swing(progress.current), book.fitted.hinge.quaternion);
+    if (fold.current) fold.current.visible = progress.current > 0.97;
     if (root.current) {
-      // Shut, the book (the right half) is centred, tilted back and a little smaller; it settles flat and square as it opens.
-      root.current.position.x = narrow ? 0 : -(W / 2) * (1 - e);
+      // Shut, the book is centred, tilted back and a little smaller; it settles flat and square as it opens.
+      root.current.position.x = narrow ? 0 : -closedCx * (1 - e);
       root.current.position.y = -0.04 * (1 - e);
       root.current.rotation.x = -0.42 * (1 - e);
       root.current.rotation.z = 0.05 * (1 - e);
@@ -386,11 +525,11 @@ export function BookScene({
         for (let i = 0; i < pos.count; i++) {
           const x = rest[i * 3]!;
           const y = rest[i * 3 + 1]!;
-          const u = x / W;
-          // The spine end leads; the fore-edge lags, curling the page.
+          const u = (x - right.x0) / pageW;
+          // The spine end leads; the fore-edge lags, curling the page; it lands on the (slightly higher) left page.
           const a = Math.PI * smooth(clamp01(t * 1.45 - 0.45 * u));
           const lift = Math.sin(Math.PI * t) * 0.05 * u;
-          pos.setXYZ(i, Math.cos(a) * x, y, T + 0.004 + Math.sin(a) * x + lift);
+          pos.setXYZ(i, Math.cos(a) * x, y, 0.004 + Math.sin(a) * x + lift + (leftTop * a) / Math.PI);
         }
         pos.needsUpdate = true;
         sheet.geometry.computeVertexNormals();
@@ -404,39 +543,23 @@ export function BookScene({
       <ambientLight intensity={1.1} color="#fff4e6" />
       <directionalLight position={[-1.5, 2.5, 4]} intensity={1.5} color="#fff1dc" />
       <group ref={root}>
-        {/* Right half: back cover, then its block of pages (top face +z is the right-hand page). */}
-        <mesh
-          geometry={geometries.cover}
-          position={[(W + OV) / 2, 0, -C / 2]}
-          material={[materials.leather, materials.leather, materials.leather, materials.leather, materials.inside, materials.leather]}
-        />
-        <mesh
-          geometry={geometries.block}
-          position={[W / 2, 0, T / 2]}
-          material={[materials.edges, materials.edges, materials.edges, materials.edges, materials.page, materials.page]}
-        />
-        {/* The spine, wrapping the stack on the left edge. */}
-        <mesh ref={spine} geometry={geometries.spine} position={[0, 0, T]} material={materials.leather} />
-        {/* Left half, hinged on the spine at mid-thickness: shut it lies on top; open it has turned over to the left. */}
-        <group ref={hinge} position={[0, 0, T]}>
-          <mesh
-            geometry={geometries.block}
-            position={[W / 2, 0, T / 2]}
-            material={[materials.edges, materials.edges, materials.edges, materials.edges, materials.page, materials.page]}
-          />
-          <mesh
-            geometry={geometries.cover}
-            position={[(W + OV) / 2, 0, T + C / 2]}
-            material={[materials.leather, materials.leather, materials.leather, materials.leather, materials.cover, materials.inside]}
-          />
+        <group matrixAutoUpdate={false} matrix={book.fitted.fit}>
+          <primitive object={book.scene} />
         </group>
+        {/* The right-hand page's top, in the same washed paper as the HTML. */}
+        <mesh geometry={book.geometries.top} position={[(right.x0 + right.x1) / 2, pageCy, 0.001]} material={book.materials.page} />
         {/* The ribbon, lying in the fold and hanging past the tail. */}
-        <mesh geometry={geometries.ribbon} position={[0.012, -0.11, T + 0.003]} material={materials.ribbon} />
-        {/* The fold's shadow across both pages (only once the left half has come over). */}
-        <mesh ref={fold} geometry={geometries.fold} position={[0, 0, T + 0.002]} material={materials.fold} />
+        <mesh geometry={geometries.ribbon} position={[0, pageCy - 0.11, 0.003]} material={materials.ribbon} />
+        {/* The fold's shadow either side of the spine (only once the cover has come over). */}
+        <group ref={fold} position={[0, pageCy, 0]}>
+          <mesh geometry={geometries.fold} position={[0, 0, 0.002]} material={materials.fold} />
+          <mesh geometry={geometries.fold} position={[0, 0, leftTop + 0.002]} scale={[-1, 1, 1]} material={materials.fold} />
+        </group>
         {/* The page being turned. */}
         <mesh ref={leaf} geometry={geometries.leaf} material={materials.leaf} visible={false} />
       </group>
     </>
   );
 }
+
+useGLTF.preload(MODELS.props2.codexBook, DRACO_PATH);

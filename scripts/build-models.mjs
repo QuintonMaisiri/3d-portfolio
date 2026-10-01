@@ -64,6 +64,9 @@ const MODELS = [
   // The Forest's project chests (Fantasy Props MegaKit, CC0): rigged, with Chest_Open / Chest_Close.
   { src: "props/Exports/glTF/Chest_Wood.gltf", dest: "props/chest-wood.glb", animated: true, texture: 512 },
 
+  // The Codex: "FREE Simple Opening Book" by Cécile Amstad (Sketchfab, CC-BY-4.0): a skinned cover with one opening clip.
+  { src: "book/scene.gltf", dest: "props/codex-book.glb", animated: true, texture: 1024 },
+
   // Survival Pack (Quaternius, CC0, OBJ): camp and expedition gear. Modern items (guns, phones, cans) left out.
   ...["Tent", "Backpack", "Compass_Open", "Compass_Closed", "Bonfire", "WoodenTorch", "WoodLog", "Shovel", "Axe", "Pan", "Pot_Small", "Matchbox"].map((name) => ({
     src: `survival/Survival Pack - Sept 2020/OBJ/${name}.obj`,

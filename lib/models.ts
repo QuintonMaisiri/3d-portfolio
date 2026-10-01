@@ -57,6 +57,7 @@ export const MODELS = {
   props2: {
     /** Rigged: Chest_Open, Chest_Close, Chest_Opened, Chest_Closed. */
     chest: m("props/chest-wood"),
+    codexBook: m("props/codex-book"),
   },
   character: m("character/adventurer"),
   creatures: {
