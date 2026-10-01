@@ -1,5 +1,4 @@
 import type { About } from "@/lib/types";
-import { todo } from "./todo";
 
 export const about: About = {
   paragraphs: [
@@ -8,7 +7,8 @@ export const about: About = {
     "Since 2022 I've also freelanced, delivering full-stack builds for clients in Zimbabwe and internationally, from requirements through to deployment and handover.",
   ],
   // Shown after the paragraphs; in the world it's kept in the Archive's locked cabinet.
-  drive: todo("what drives you, in one or two sentences"),
+  drive:
+    "I like the problems that sit between people and progress. Give me a messy process, a stretched team, and a real deadline, and I'll give you something that just works.",
   facts: [
     { label: "Role", value: "Senior Developer, Uncommon.org" },
     { label: "Based in", value: "Harare, Zimbabwe" },
