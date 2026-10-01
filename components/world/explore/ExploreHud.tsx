@@ -77,7 +77,7 @@ export function ExploreHud() {
     const onKey = (e: KeyboardEvent) => {
       if (e.code !== "KeyC" || e.repeat || typing(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
       const store = useCodex.getState();
-      if (!store.codexOpen) store.openCodex();
+      if (!store.codexOpen && !store.introOpen) store.openCodex();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -141,27 +141,30 @@ export function ExploreHud() {
         </button>
       ) : null}
 
-      <MusicControl className={`${pill} absolute bottom-6 left-4 flex h-10 w-10 items-center justify-center hover:bg-[#121318] sm:left-8`} />
+      {/* Sound and the Codex, side by side; sound is labelled so it's easy to turn off. */}
+      <div className="absolute bottom-6 left-4 flex items-center gap-2 sm:left-8">
+        <MusicControl className={`${pill} flex h-10 items-center gap-2 px-3.5 text-sm font-medium hover:bg-[#121318]`} />
 
-      <button
-        type="button"
-        onClick={() => useCodex.getState().openCodex()}
-        aria-label={`Open the Codex: ${found} of ${codexPages.length} pages written${unread ? `, ${unread} new` : ""}`}
-        className={`${pill} absolute bottom-6 left-16 flex items-center gap-2 px-4 py-2.5 text-sm font-medium hover:bg-[#121318] sm:left-20`}
-      >
-        <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6">
-          <path d="M3 4.5c2.5-1 5-1 7 .5v11c-2-1.5-4.5-1.5-7-.5v-11ZM17 4.5c-2.5-1-5-1-7 .5v11c2-1.5 4.5-1.5 7-.5v-11Z" strokeLinejoin="round" />
-        </svg>
-        Codex
-        <span className="text-[#cbc5b6]">
-          {found}/{codexPages.length}
-        </span>
-        {unread ? <span className="rounded-full bg-[#e3b34a] px-1.5 text-[0.65rem] font-bold text-[#15120d]">{unread} new</span> : null}
-        {touch ? null : <kbd className="ml-1 hidden font-sans text-xs text-[#cbc5b6] sm:inline">C</kbd>}
-      </button>
+        <button
+          type="button"
+          onClick={() => useCodex.getState().openCodex()}
+          aria-label={`Open the Codex: ${found} of ${codexPages.length} pages written${unread ? `, ${unread} new` : ""}`}
+          className={`${pill} flex h-10 items-center gap-2 px-4 text-sm font-medium hover:bg-[#121318]`}
+        >
+          <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6">
+            <path d="M3 4.5c2.5-1 5-1 7 .5v11c-2-1.5-4.5-1.5-7-.5v-11ZM17 4.5c-2.5-1-5-1-7 .5v11c2-1.5 4.5-1.5 7-.5v-11Z" strokeLinejoin="round" />
+          </svg>
+          Codex
+          <span className="text-[#cbc5b6]">
+            {found}/{codexPages.length}
+          </span>
+          {unread ? <span className="rounded-full bg-[#e3b34a] px-1.5 text-[0.65rem] font-bold text-[#15120d]">{unread} new</span> : null}
+          {touch ? null : <kbd className="ml-1 hidden font-sans text-xs text-[#cbc5b6] sm:inline">C</kbd>}
+        </button>
+      </div>
 
       <p
-        className={`absolute inset-x-4 bottom-20 mx-auto w-fit rounded-full bg-[#121318]/85 px-5 py-2.5 text-center text-sm text-[#f3efe4] backdrop-blur-md transition-opacity duration-700 motion-reduce:transition-none sm:bottom-6 ${hint ? "opacity-100" : "opacity-0"}`}
+        className={`absolute inset-x-4 bottom-20 mx-auto w-fit rounded-full bg-[#121318]/85 px-5 py-2.5 text-center text-sm text-[#f3efe4] backdrop-blur-md transition-opacity duration-700 motion-reduce:transition-none lg:bottom-6 ${hint ? "opacity-100" : "opacity-0"}`}
       >
         {touch ? (
           <>Tap to walk &middot; drag to look &middot; tap a light to use it</>

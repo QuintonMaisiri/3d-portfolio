@@ -1,3 +1,5 @@
+import { useCodex } from "@/lib/store";
+
 /**
  * Explore-mode input, gathered from DOM events and read (then consumed) by the
  * player and camera each frame. Keyboard: WASD or arrows, Shift to run.
@@ -33,7 +35,7 @@ export function attachInput(canvas: HTMLElement) {
   let dragged = false;
 
   const onKeyDown = (e: KeyboardEvent) => {
-    if (typing(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (typing(e.target) || e.metaKey || e.ctrlKey || e.altKey || useCodex.getState().introOpen) return;
     if (e.code === "KeyE" && !e.repeat) {
       input.interact = true;
       return;
@@ -155,6 +157,7 @@ export function pollGamepad(): { codex: boolean } {
 
 /** Movement intent from the keyboard or gamepad: x = strafe (right +), y = forward (+), each -1..1. */
 export function moveAxes() {
+  if (useCodex.getState().introOpen) return { x: 0, y: 0, run: false };
   const k = input.keys;
   const kx = (k.has("KeyD") || k.has("ArrowRight") ? 1 : 0) - (k.has("KeyA") || k.has("ArrowLeft") ? 1 : 0);
   const ky = (k.has("KeyW") || k.has("ArrowUp") ? 1 : 0) - (k.has("KeyS") || k.has("ArrowDown") ? 1 : 0);

@@ -117,7 +117,7 @@ export function PlayerController() {
     const dt = Math.min(delta, 0.1);
     const store = useCodex.getState();
     // A gamepad, if one is connected (sticks feed moveAxes and the look input).
-    if (pollGamepad().codex && !store.codexOpen) store.openCodex();
+    if (pollGamepad().codex && !store.codexOpen && !store.introOpen) store.openCodex();
 
     // Fast travel (region map, Codex, waystones, entering the world): fade to black, move, fade back in.
     const now = performance.now();
