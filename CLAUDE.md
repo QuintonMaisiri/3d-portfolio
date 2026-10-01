@@ -233,7 +233,7 @@ Where content is missing (project write-ups, problem-solving case studies, testi
 ### Open TODOs (content)
 Placeholders render visibly as `[TODO: ...]`. Edit in `content/`:
 - `projects.ts`: UncommonOS and Program Pulse summaries; problem and result for all six; stack for the Uncommon products.
-- `problems.ts`: 3 case studies. Candidates from the CV: CSRF cookie auth across origins, EcoCash/Paynow callback verification, MentorMatch capacity-aware allocation, the 15% refactor, four-layer RBAC. Needs approach and outcome from Quinton.
+- `problems.ts`: 3 cases drafted from the CV on 2026-10-01 (Maintenance Dispatch sign-in across two origins, EcoCash/Paynow payments, the legacy front-end refactor). Outcomes for cases 1 and 2 are still TODO (the CV gives none); case 3's outcome is the CV's 15%. Quinton to confirm the wording.
 - `testimonials.ts`: real quotes with name and relationship.
 - `skills.ts`: AI/LLM integration has no supporting detail yet.
 
