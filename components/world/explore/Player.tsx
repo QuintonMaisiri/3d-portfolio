@@ -4,6 +4,7 @@ import { useAnimations, useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import {
+  Color,
   LoopOnce,
   Mesh,
   MeshLambertMaterial,
@@ -33,6 +34,11 @@ import { groundHeight } from "@/lib/terrain";
 import { withRim } from "@/lib/wind";
 
 const URL = "/models/character/adventurer.glb";
+/** Colours replacing the model's own, by material name (sRGB; three converts them). */
+const LOOK: Record<string, Color> = {
+  Skin: new Color("#5e3b25"),
+  Hair: new Color("#17110d"),
+};
 
 type Clip = "Idle" | "Walk" | "Run";
 /** Crossfade between clips, seconds. */
@@ -283,12 +289,14 @@ export function Player() {
   }, [mixer]);
 
   // Lambert like the rest of the world (and cheaper than PBR); skinning is automatic.
+  // The adventurer is Quinton: deep brown skin and black hair (the pack's model is fair and blond).
   const materials = useMemo(() => {
     const made: MeshLambertMaterial[] = [];
     scene.traverse((object) => {
       if (!(object instanceof Mesh)) return;
       const source = object.material as MeshStandardMaterial;
-      const material = Object.assign(new MeshLambertMaterial({ color: source.color, name: source.name }), withRim());
+      const color = LOOK[source.name] ?? source.color;
+      const material = Object.assign(new MeshLambertMaterial({ color, name: source.name }), withRim());
       made.push(material);
       object.material = material;
       object.castShadow = true;
