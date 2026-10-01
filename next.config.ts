@@ -7,6 +7,8 @@ const nextConfig: NextConfig = {
   agentRules: false,
   // A package-lock.json in the parent folder would otherwise be picked as the workspace root.
   turbopack: { root: path.resolve(__dirname) },
+  // Lets a phone on the same Wi-Fi use the dev server (http://<this computer's IP>:3000); Next blocks other origins by default.
+  allowedDevOrigins: ["192.168.*.*", "10.*.*.*", "172.*.*.*"],
 };
 
 export default nextConfig;

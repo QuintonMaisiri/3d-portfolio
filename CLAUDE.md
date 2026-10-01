@@ -222,6 +222,7 @@ Where content is missing (project write-ups, problem-solving case studies, testi
 - **TypeScript 6.0.3 and ESLint 9.39.5**, not the newer TS 7 / ESLint 10: typescript-eslint and Next's ESLint plugins don't support them yet.
 - **r3f-perf 7.2.3** (last release Nov 2024) depends on drei 9 / React 18. An npm `overrides` entry points it at our drei 10. It also ships a source map pointing at a binary font that crashes Turbopack dev; `scripts/patch-r3f-perf.mjs` (postinstall) strips it. Dev only, lazily imported, verified absent from the production bundle. If it causes more trouble, swap for drei `<StatsGl>`.
 - `scripts/copy-draco.mjs` (postinstall) copies the Draco decoder from `three` into `public/draco/` (gitignored, regenerated on install).
+- **Phone testing on the dev server:** `next.config.ts` `allowedDevOrigins` allows private network addresses (192.168.x.x, 10.x.x.x, 172.x.x.x). Next 16 blocks other origins' dev requests by default, which left the app dead on a phone opened at `http://<computer IP>:3000` (2026-10-01). Restart `npm run dev` after config changes. Test: scratchpad `phone.mjs <fresh-dir>` (LAN address, real touch taps: Begin, tap to walk, Codex, close, Sound).
 - `next.config.ts`: `agentRules: false` stops `next dev` appending its own block to this file; `turbopack.root` pinned because a stray `package-lock.json` exists in the parent `practice/` folder.
 - Harmless console noise: `THREE.Clock ... deprecated` comes from inside R3F 9.8.1.
 - Next 16 docs ship in `node_modules/next/dist/docs/`; check them for API changes.
