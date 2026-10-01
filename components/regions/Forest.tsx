@@ -34,10 +34,11 @@ const region = regionById.forest;
 const ground = groundAt(region);
 
 /**
- * Project trees stand in two staggered rows in the open (right) side of the
- * frame, so each reads as its own tree; kept right of the camera's route
- * onward to the Peaks (which runs at x of about -5). Extra projects continue
- * further back.
+ * Project trees stand in three staggered rows in the open (right) side of
+ * the frame, so each reads as its own tree; kept right of the camera's route
+ * onward to the Peaks (which runs at x of about -5). The third row sits
+ * between the second row's trees, clear of their chests. Projects past nine
+ * continue further back.
  */
 const PROJECT_ROWS = [
   [0.2, -2],
@@ -46,6 +47,9 @@ const PROJECT_ROWS = [
   [8, -7.5],
   [8.4, -1],
   [11.5, -7],
+  [1.8, -13.5],
+  [6, -14],
+  [9.8, -13.5],
 ] as const;
 const PROJECT_SPOTS = projects.map((project, i) => {
   const [rx, rz] = PROJECT_ROWS[i % PROJECT_ROWS.length]!;
@@ -93,7 +97,8 @@ export function Forest() {
         area: [-45, 45, -40, 28],
         scale: [0.7, 1.5],
         tilt: 0.06,
-        keep: (x, z) => PROJECT_SPOTS.every((s) => Math.hypot(x - s.x, z - s.z) > 3),
+        // Clear of each project tree, and of its chest (which stands 2.1 in front of it).
+        keep: (x, z) => PROJECT_SPOTS.every((s) => Math.hypot(x - s.x, z - s.z) > 3) && CHESTS.every((c) => Math.hypot(x - c.cx, z - c.cz) > 2.6),
       }),
     [],
   );
@@ -127,7 +132,8 @@ export function Forest() {
         area: [-30, 30, -30, 22],
         scale: [0.8, 1.5],
         tilt: 0.08,
-        keep: (x, z) => PROJECT_SPOTS.every((s) => Math.hypot(x - s.x, z - s.z) > 1.8),
+        // The undergrowth includes rocks up to about 3 across: keep them off the chests.
+        keep: (x, z) => PROJECT_SPOTS.every((s) => Math.hypot(x - s.x, z - s.z) > 1.8) && CHESTS.every((c) => Math.hypot(x - c.cx, z - c.cz) > 2.4),
       }),
     [],
   );

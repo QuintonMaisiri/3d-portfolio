@@ -113,6 +113,13 @@ Where content is missing (project write-ups, problem-solving case studies, testi
 - **Sound button in the HUD** is now labelled ("Sound on/off", M) beside the Codex button (`SoundToggle` in MusicControl.tsx, shared with the intro). Below 1024 px the controls hint sits above the buttons.
 - Tests (scratchpad): `exintro.mjs <fresh-dir>` (intro blocks keys, sound toggle, begin, walking after, fits 1440x900 and 1366x768, phone, read as a page). **Use a new output folder name**: reusing an old folder reuses its Chrome profile and saved pages. `axe-v2.mjs` audits the intro (desktop and phone) and clicks Begin; `exbook3d.mjs` clicks Begin.
 
+### Forest: nine projects (2026-10-01)
+- Quinton added Facilite, Mutai Employment Agency and Wardrobe Worth from the CV (not Maintenance Dispatch, which is problem-solving case 1). Content comes only from the CV; problems/results it doesn't give stay TODO. Facilite's result "Serves more than 1,000 users a month" and Mutai's "Improved response times" are the CV's own claims.
+- `PROJECT_ROWS` in Forest.tsx has a third row (1.8, -13.5), (6, -14), (9.8, -13.5) between the second row's trees. Woodland keeps 2.6 and undergrowth (which includes rocks up to about 3 across) 2.4 clear of every chest: a rock had landed on Mutai's chest.
+- The journey Projects list is grouped by context (a shared role goes in the group heading), so nine rows fit 1440x900 and 1366x768 without scrolling. Rows keep `data-beat` in content order, so each tree still lights with its row.
+- The Codex now has 29 pages.
+- Tests (scratchpad): `forest9.mjs` (every chest registered, prompt in reach, approach clear), `forest9-near.mjs` (solids near each chest), `journeyforest.mjs` (panel overflow), `axe-journey.mjs`.
+
 ### The Codex as a book (after V2.11, at Quinton's request: "open like an actual book with pages flipping ... a thick journal")
 - **The model** (2026-10-01, Quinton supplied it after my procedural book "doesn't open right"): "FREE Simple Opening Book" by Cecile Amstad (Sketchfab, **CC-BY-4.0**, credited in `content/credits.ts`), built by `npm run models -- codex-book` to `public/models/props/codex-book.glb` (189 KB; `MODELS.props2.codexBook`). Red leather with a contour-map pattern; one page block on the right only; the front cover is skinned to a single animated joint, `_Under_book_010`. The one clip ("Take 001") swings the cover open by about 4.9 s, but only to about 169 degrees. Authored in cm.
 - `components/codex/BookScene.tsx` (its own small `<Canvas>` in the full-screen dialog). `fitBook()` reads the model once:
@@ -145,7 +152,7 @@ Where content is missing (project write-ups, problem-solving case studies, testi
 - **Forge:** the lava flares (heat up to +0.9, bloomed) while a skill group is being kindled.
 - **Caves:** once every crystal is lit they pulse together (`harmony`) and their sparkles brighten.
 - Codex hints updated (Peaks boulders, wading to the Ruins tablets).
-- **Archive puzzle:** About is now two Codex pages (26 in all): `about` (the paragraphs and facts, the scroll's ink beats 1 to 3) and `drive` (what drives me; `about.drive` in `content/about.ts`, still a TODO, the scroll's 4th ink line). A key (`props/key-metal.glb`, x4) lies by a candle stand near the entrance (`KEY` in Archive.tsx); taking it adds `archive-key` to the new **inventory** (`items` in `lib/discoveries.ts`, persisted) with a note. The cabinet (`props/cabinet.glb`, x1.6) against the inner shelves (`CABINET`, faces the dais) is `locked` until then ("It's locked. The key must be somewhere in the Archive."); unlocked, it writes `drive`, spills light (`GlowDot`) and opens the page. A chandelier (`props/chandelier.glb`, x2.2) hangs over the dais. Interactable gained `locked` (note instead of pages), `pending` (marker override) and empty `pages`.
+- **Archive puzzle:** About is now two Codex pages (26 in all): `about` (the paragraphs and facts, the scroll's ink beats 1 to 3) and `drive` (what drives me; `about.drive` in `content/about.ts`, written 2026-10-01, the scroll's 4th ink line). A key (`props/key-metal.glb`, x4) lies by a candle stand near the entrance (`KEY` in Archive.tsx); taking it adds `archive-key` to the new **inventory** (`items` in `lib/discoveries.ts`, persisted) with a note. The cabinet (`props/cabinet.glb`, x1.6) against the inner shelves (`CABINET`, faces the dais) is `locked` until then ("It's locked. The key must be somewhere in the Archive."); unlocked, it writes `drive`, spills light (`GlowDot`) and opens the page. A chandelier (`props/chandelier.glb`, x2.2) hangs over the dais. Interactable gained `locked` (note instead of pages), `pending` (marker override) and empty `pages`.
 - **Forge:** pedestals use the new `strike` action (the adventurer's Punch clip) before a group is kindled.
 - **Campfire: sitting.** Quinton added Mixamo `Sitting Idle.fbx` (without skin). `scripts/retarget-sit.mjs` retargets it onto CharacterArmature (17 bones: spine, neck, head, arms, upper and lower legs; the feet are IK targets and are skipped): per frame, target world rotation = source world(t) x inverse(source world rest) x target world rest, converted to local under the posed parent, written to `assets-inbox/_work/character/sit-clip.json`; `npm run models -- character` bakes it in as "Sit" (`extraClips`, `addClip` in build-models; bones matched by three's sanitised names). Rotations only: `SEAT_DROP` 0.42 lowers the body onto the bench. `action: "sit"` with a `seat` (position, facing, drop): the fire's interactable seats the adventurer on the west bench facing the fire, then opens the contact letter; they stay seated after the Codex closes until the visitor moves or taps. (three's `SkeletonUtils.retargetClip` copies world rotations directly and mangled the pose because the rigs' rest orientations differ.)
 - Tests (scratchpad): `exsit.mjs` (sit, contact opens, stays seated, stands on S), `exarchive2.mjs` (waits for readiness each step: locked note, key, unlock, drive page). Note: after a session restart the dev server must be started again (`npm run dev`); cold first compile takes ~25 s.
@@ -232,15 +239,13 @@ Where content is missing (project write-ups, problem-solving case studies, testi
 
 ### Open TODOs (content)
 Placeholders render visibly as `[TODO: ...]`. Edit in `content/`:
-- `about.ts`: what drives you (1 to 2 sentences).
-- `projects.ts`: UncommonOS and Program Pulse summaries; problem and result for all six; stack for the Uncommon products.
-- `problems.ts`: 3 case studies. Candidates from the CV: CSRF cookie auth across origins, EcoCash/Paynow callback verification, MentorMatch capacity-aware allocation, the 15% refactor, four-layer RBAC. Needs approach and outcome from Quinton.
+- `projects.ts` (9 projects since 2026-10-01): UncommonOS and Program Pulse summaries; problem and result for the five Uncommon products and BioDive; stack for the Uncommon products; problems for Facilite and Mutai; Wardrobe Worth's context (freelance or own product), problem and result. Facilite and Mutai are marked Freelance (Mutai matches the About text's "local recruiters"; Facilite assumed, Quinton to confirm).
+- `problems.ts`: 3 cases drafted from the CV on 2026-10-01 (Maintenance Dispatch sign-in across two origins, EcoCash/Paynow payments, the legacy front-end refactor). Outcomes for cases 1 and 2 are still TODO (the CV gives none); case 3's outcome is the CV's 15%. Quinton to confirm the wording.
 - `testimonials.ts`: real quotes with name and relationship.
 - `skills.ts`: AI/LLM integration has no supporting detail yet.
 
 ### Deferred decisions (Quinton: "fix later")
-- Which projects go in the Forest (add the CV's extra projects?).
-- Which links are public (uncommon.org sites, biodiveuae.org, wardrobe-worth.com, facilite.cc, repos).
+- Public links: decided 2026-10-01: biodiveuae.org and wardrobe-worth.com only (not the uncommon.org sites or facilite.cc).
 - Phone number on site (default: no). "Download CV" link. Final domain (needed for metadataBase and OG).
 
 ### Done in Phase 1

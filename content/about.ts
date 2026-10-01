@@ -1,14 +1,14 @@
 import type { About } from "@/lib/types";
-import { todo } from "./todo";
 
 export const about: About = {
   paragraphs: [
-    "I'm a full stack software engineer and a Senior Developer at Uncommon.org, a nonprofit technology education company. I joined in September 2023 as an Associate Developer and became Senior Developer in August 2025.",
-    "At Uncommon I own five products end to end: UncommonOS, MentorMatch, PeopleCore, Uncommon Playground and Program Pulse. I also work on the public sites that serve thousands of learners, and on the CI/CD pipelines that build and release our internal products.",
-    "Since 2022 I've also freelanced, delivering full-stack builds for clients in Zimbabwe and internationally, from requirements through to deployment and handover.",
+    "I'm Quinton, a Senior Developer based in Harare, Zimbabwe. I've spent the last few years owning products end to end, including internal platforms at Uncommon.org that run programmes, match mentors, manage teams and report to funders.",
+    "Alongside that I finished a Computer Science degree at the University of Zimbabwe and took on freelance builds for clients from local recruiters to a marine conservation group in the UAE.",
+    "And I kept chasing my oldest obsession: making the web feel like a place you can explore. This site is that obsession, finally given a world of its own.",
   ],
   // Shown after the paragraphs; in the world it's kept in the Archive's locked cabinet.
-  drive: todo("what drives you, in one or two sentences"),
+  drive:
+    "I like the problems that sit between people and progress. Give me a messy process, a stretched team, and a real deadline, and I'll give you something that just works.",
   facts: [
     { label: "Role", value: "Senior Developer, Uncommon.org" },
     { label: "Based in", value: "Harare, Zimbabwe" },
